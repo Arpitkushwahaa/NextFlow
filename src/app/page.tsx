@@ -29,9 +29,8 @@ export default function LandingPage() {
       >
         {/* Headline */}
         <div className="w-full px-10 pt-10 pb-8 relative z-[5] pointer-events-none text-center">
-          <h1 className="text-[3.5rem] md:text-[5rem] lg:text-[6.5rem] leading-[0.92] tracking-tight mb-6 flex items-center justify-center gap-8 md:gap-16">
-            <span className="font-serif italic">NextFlow</span>
-            <span className="font-serif italic">AI Workflows</span>
+          <h1 className="text-[3.5rem] md:text-[5rem] lg:text-[6.5rem] leading-[0.92] tracking-tight mb-6 font-serif italic">
+            NextFlow AI Workflows
           </h1>
           <p className="text-sm md:text-base text-[#222] leading-snug max-w-xl mx-auto">
             Turn your creative vision into scalable workflows.
