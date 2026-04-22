@@ -159,3 +159,103 @@ textarea,
 select {
   transition: all 0.15s ease;
 }
+
+/* ─── Clerk auth form overrides ──────────────────────────────────────────── */
+
+/* Dark inputs */
+.cl-formFieldInput {
+  background-color: #262626 !important;
+  border-color: #3a3a3a !important;
+  color: #ffffff !important;
+}
+
+.cl-formFieldInput::placeholder {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.cl-formFieldInput:focus {
+  border-color: #555555 !important;
+  box-shadow: 0 0 0 1px #555555 !important;
+}
+
+/* Form labels */
+.cl-formFieldLabel {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+
+/* "Forgot password?" and similar inline links */
+.cl-formFieldAction {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.cl-formFieldAction:hover {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* "or" divider */
+.cl-dividerText {
+  color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.cl-dividerLine {
+  background-color: #2a2a2a !important;
+}
+
+/* Footer: "Already have an account? Sign in" / "Don't have an account? Sign up" */
+.cl-footer,
+.cl-footerPages,
+.cl-footerPagesLink {
+  background-color: transparent !important;
+}
+
+.cl-footerActionText {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.cl-footerActionLink {
+  color: rgba(255, 255, 255, 0.85) !important;
+  font-weight: 500 !important;
+  text-decoration: underline !important;
+  text-decoration-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.cl-footerActionLink:hover {
+  color: #ffffff !important;
+}
+
+/* Social buttons (Continue with Google) — keep white per production */
+.cl-socialButtonsBlockButton {
+  background-color: #ffffff !important;
+  border-color: #e5e5e5 !important;
+}
+
+.cl-socialButtonsBlockButtonText {
+  color: #111111 !important;
+}
+
+/* "Last used" badge on social buttons */
+.cl-badge {
+  background-color: #111111 !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  opacity: 1 !important;
+}
+
+/* Arrow icon inside social buttons */
+.cl-buttonArrowIcon {
+  color: #111111 !important;
+}
+
+/* Identity preview (after email step) */
+.cl-identityPreviewText {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.cl-identityPreviewEditButton {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+/* ─────────────────────────────────────────────────────────────────────────── */

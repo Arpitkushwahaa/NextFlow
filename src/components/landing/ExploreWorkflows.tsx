@@ -19,7 +19,7 @@ export default function ExploreWorkflows() {
                 Workflows
             </h2>
             <p className="text-white text-lg max-w-lg mb-12 leading-relaxed">
-                From multi-layer compositing to matte manipulation, Nodefy keeps up
+                From multi-layer compositing to matte manipulation, NextFlow keeps up
                 with your creativity with all the editing tools you recognize and rely
                 on.
             </p>

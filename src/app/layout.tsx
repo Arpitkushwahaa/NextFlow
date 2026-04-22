@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Nodefy | AI-Powered Visual Workflows",
+  title: "NextFlow | AI-Powered Visual Workflows",
   description:
     "Build AI-powered workflows with a visual node-based editor. Connect text, images, and LLM nodes to create powerful automation.",
 };

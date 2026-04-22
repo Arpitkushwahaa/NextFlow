@@ -7,7 +7,7 @@ export default function AuthCard({ children, title }: { children: React.ReactNod
     <div className="min-h-screen flex flex-col items-center justify-center bg-black p-6">
       <div className="mb-6 text-center">
         <div className="mx-auto w-12 h-12 rounded-lg bg-neutral-100 text-neutral-900 flex items-center justify-center font-semibold">N</div>
-        <div className="mt-3 text-white font-medium">Nodefy</div>
+        <div className="mt-3 text-white font-medium">NextFlow</div>
       </div>
 
       <div className="w-full max-w-md bg-neutral-900/90 backdrop-blur-md border border-neutral-800 rounded-2xl p-0 shadow-xl overflow-hidden">
