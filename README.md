@@ -1,87 +1,138 @@
-﻿# NextFlow
+﻿# NextFlow - AI Workflow Builder
 
-NextFlow is a workflow builder app I built with Next.js. The project is focused on giving users a clean visual editor for creating LLM-based workflows and other automation steps in one place.
+NextFlow is a powerful, node-based AI workflow platform that enables users to create, manage, and execute complex LLM pipelines using a visual drag-and-drop interface. Built with Next.js 15, it provides an intuitive way to chain AI models together for content generation, image analysis, and more.
 
-## What it does
+## 📸 Screenshots
 
-NextFlow lets you create and manage workflows with a node-based interface. It includes separate node types for text, images, LLM prompts, uploads, and media processing, so the canvas can handle different workflow steps.
+**Landing Page**
+Beautiful, responsive landing page with interactive workflow preview
 
-The app is structured to keep the UI, workflow state, authentication, and backend execution logic separated so it is easier to extend and maintain.
+**Dashboard**
+User workspace showing saved workflows with easy access to create new ones
 
-## Tech stack
+**Workflow Canvas**
+Visual editor with drag-and-drop nodes, real-time connections, and live execution
 
-- Next.js
-- React
-- TypeScript
-- Prisma
-- PostgreSQL
-- Clerk
-- Trigger.dev
-- Transloadit
-- React Flow
-- Tailwind CSS
+## 🚀 Features
 
-## Project structure
+### Core Functionality
+- **Visual Workflow Builder** - Drag-and-drop nodes to create AI pipelines
+- **Multiple Node Types:**
+  - 📝 Text Node - Enter prompts and descriptions
+  - 🖼️ Image Node - Upload and process images
+  - 🤖 LLM Node - Connect to OpenAI and Gemini models
+  - 📤 Upload Node - Handle file uploads
+  - ✂️ Crop Image Node - Visual image cropping
+  - 🎬 Extract Frame Node - Extract frames from videos
+- **Real-time Connections** - Connect nodes with animated edges
+- **Workflow Persistence** - Save, load, and manage workflows
+- **Background Execution** - Run long-duration tasks with Trigger.dev
+
+### Authentication
+- **Clerk Auth** - Secure user authentication and management
+- **Protected Routes** - Dashboard and workflow canvas restricted to authenticated users
+- **Session Management** - Secure JWT-based sessions
+
+### User Experience
+- **Responsive Design** - Works on desktop, tablet, and mobile
+- **Dark Theme** - Modern dark UI for reduced eye strain
+- **Keyboard Shortcuts** - Efficient workflow management
+- **Undo/Redo** - Full history support for workflow changes
+- **Export/Import** - Share workflows as JSON files
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Styling**: Tailwind CSS, Radix UI
+- **Canvas**: React Flow
+- **Database**: PostgreSQL (Neon), Prisma ORM
+- **Auth**: Clerk
+- **Background Jobs**: Trigger.dev v4
+- **Media Processing**: Transloadit (FFmpeg)
+- **State Management**: Zustand
+- **AI Models**: OpenAI, Google Gemini
+
+## 📁 Project Structure
 
 ```text
 NextFlow/
-├── prisma/      database schema and migrations
-├── public/      static assets
-└── src/
-	 ├── app/     routes, pages, and API handlers
-	 ├── components/
-	 ├── lib/
-	 ├── models/
-	 ├── store/
-	 └── types/
+├── prisma/           database schema and migrations
+├── public/           static assets (images, icons)
+├── src/
+│   ├── app/          Next.js routes and pages
+│   │   ├── api/      API routes
+│   │   ├── dashboard/
+│   │   ├── login/
+│   │   └── workflow/
+│   ├── components/   React components
+│   │   ├── nodes/    React Flow node types
+│   │   └── landing/  Landing page components
+│   ├── lib/          Utilities and client instances
+│   ├── models/       Data models and types
+│   ├── store/        Zustand state management
+│   └── types/        TypeScript interfaces
+├── trigger/          Trigger.dev task definitions
+└── .github/          GitHub config and instructions
 ```
 
-## Getting started
+## 🚀 Getting Started
 
-1. Install dependencies.
+### Prerequisites
+- Node.js (v18 or higher)
+- npm or yarn
+- API keys for Clerk, OpenAI/Gemini, and Neon Database
 
-	```bash
-	npm install
-	```
+### Installation
 
-2. Set your environment variables in `.env`.
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Arpitkushwahaa/NextFlow.git
+   cd NextFlow
+   ```
 
-	```env
-	DATABASE_URL="postgresql://user:password@your-neon-host.neon.tech/dbname?sslmode=require"
-	NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
-	CLERK_SECRET_KEY="sk_test_..."
-	NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
-	NEXT_PUBLIC_CLERK_SIGN_UP_URL=/login
-	NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
-	NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
-	OPENAI_API_KEY="sk-..."
-	GEMINI_API_KEY="AIzaSy..."
-	TRIGGER_API_KEY="tr_..."
-	TRIGGER_API_URL="https://api.trigger.dev"
-	TRANSLOADIT_AUTH_KEY="..."
-	TRANSLOADIT_AUTH_SECRET="..."
-	```
+2. Install dependencies:
+   ```bash
+   npm install --legacy-peer-deps
+   ```
 
-3. Push the Prisma schema to the database.
+3. Set up environment variables in `.env`:
+   ```env
+   # Database (Neon PostgreSQL)
+   DATABASE_URL="postgresql://user:password@your-neon-host.neon.tech/dbname?sslmode=require"
 
-	```bash
-	npx prisma generate
-	npx prisma db push
-	```
+   # Clerk Authentication
+   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
+   CLERK_SECRET_KEY="sk_test_..."
+   NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
+   NEXT_PUBLIC_CLERK_SIGN_UP_URL=/login
+   NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
+   NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
 
-4. Start the development server.
+   # AI Models
+   OPENAI_API_KEY="sk-..."
+   GEMINI_API_KEY="AIzaSy..."
+   ```
 
-	```bash
-	npm run dev
-	```
+4. Initialize the database:
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
 
-## Notes
+5. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-- The app uses Clerk for authentication.
-- Prisma handles the database layer.
-- Trigger.dev is used for background workflow execution.
-- Transloadit is used for media-related processing.
+6. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## Status
+## 📝 Notes
 
-This project is in active development, and the README will continue to grow as more workflow features are added.
+- Trigger.dev and Transloadit credentials are optional for local development
+- Add them when you're ready to deploy background jobs or media processing
+- All workflows are saved to the Neon database
+- Authentication is required to access the dashboard
+
+## 📄 License
+
+This project is open source and available under the MIT License.
