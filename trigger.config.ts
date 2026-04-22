@@ -18,5 +18,5 @@ export default defineConfig({
       randomize: true,
     },
   },
-  dirs: ["C:\Users\kushw\Downloads\NextFlow-main\trigger"],
+  dirs: ["./trigger"],
 });

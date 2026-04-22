@@ -1,261 +1,161 @@
-'use client';
+"use client";
+import React, { useCallback, useState, useRef, useEffect } from "react";
+import Link from "next/link";
+import { Type, ImageIcon, Video, Brain, Crop, Film, Search, Save, FileDown, FileUp, Package, Plus, ArrowLeft, ChevronLeft, ChevronRight, History } from "lucide-react";
+import { useWorkflowStore } from "@/store/workflowStore";
 
-import React, { useCallback, useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
-import {
-    Type,
-    ImageIcon,
-    Sparkles,
-    Save,
-    FileDown,
-    FileUp,
-    Package,
-    Plus,
-    Search,
-    Grid3X3,
-    ArrowLeft
-} from 'lucide-react';
-import { useWorkflowStore } from '@/store/workflowStore';
+export type NodeTypeKey = "textNode" | "imageNode" | "videoNode" | "llmNode" | "cropImageNode" | "extractFrameNode";
 
 interface SidebarProps {
-    onDragStart: (event: React.DragEvent, nodeType: 'text' | 'image' | 'llm') => void;
+  onDragStart: (event: React.DragEvent, nodeType: NodeTypeKey) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ onDragStart }) => {
-    const {
-        workflowName,
-        setWorkflowName,
-        saveWorkflow,
-        loadSampleWorkflow,
-        exportWorkflow,
-        importWorkflow,
-        createNewWorkflow,
-    } = useWorkflowStore();
+const NODE_TYPES: Array<{ type: NodeTypeKey; label: string; Icon: React.ElementType; color: string; span?: boolean }> = [
+  { type: "textNode", label: "Text", Icon: Type, color: "#10b981" },
+  { type: "imageNode", label: "Upload Image", Icon: ImageIcon, color: "#6366f1" },
+  { type: "videoNode", label: "Upload Video", Icon: Video, color: "#f59e0b" },
+  { type: "llmNode", label: "Run Any LLM", Icon: Brain, color: "#7c3aed", span: true },
+  { type: "cropImageNode", label: "Crop Image", Icon: Crop, color: "#f97316" },
+  { type: "extractFrameNode", label: "Extract Frame", Icon: Film, color: "#14b8a6" },
+];
 
-    const [isExpanded, setIsExpanded] = useState(false);
-    const [focusSearch, setFocusSearch] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const searchInputRef = useRef<HTMLInputElement>(null);
+export default function Sidebar({ onDragStart }: SidebarProps) {
+  const { workflowName, setWorkflowName, saveWorkflow, loadSampleWorkflow, exportWorkflow, importWorkflow, createNewWorkflow, toggleHistory, isHistoryOpen } = useWorkflowStore();
+  const [open, setOpen] = useState(true);
+  const [search, setSearch] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
 
-    // Define all available nodes
-    const allNodes = [
-        { type: 'text' as const, label: 'Text', icon: Type, colSpan: false },
-        { type: 'image' as const, label: 'Image', icon: ImageIcon, colSpan: false },
-        { type: 'llm' as const, label: 'Run Any LLM', icon: Sparkles, colSpan: true },
-    ];
+  const filtered = search.trim() === "" ? NODE_TYPES : NODE_TYPES.filter((n) => n.label.toLowerCase().includes(search.toLowerCase()));
 
-    // Filter nodes based on search query
-    const filteredNodes = searchQuery.trim() === ''
-        ? allNodes
-        : allNodes.filter(node =>
-            node.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            node.type.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+  const handleExport = useCallback(() => {
+    const json = exportWorkflow();
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `${workflowName.replace(/\s+/g, "_")}.json`; a.click();
+    URL.revokeObjectURL(url);
+  }, [exportWorkflow, workflowName]);
 
-    useEffect(() => {
-        if (focusSearch && isExpanded && searchInputRef.current) {
-            setTimeout(() => searchInputRef.current?.focus(), 300);
-            setFocusSearch(false);
-        }
-    }, [focusSearch, isExpanded]);
+  const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => importWorkflow(ev.target?.result as string);
+    reader.readAsText(file);
+  }, [importWorkflow]);
 
-    const handleExport = useCallback(() => {
-        const json = exportWorkflow();
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${workflowName.replace(/\s+/g, '_').toLowerCase()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }, [exportWorkflow, workflowName]);
+  return (
+    <div className="flex h-full shrink-0">
+      {/* Icon rail */}
+      <div className="w-12 h-full bg-[#111] flex flex-col items-center border-r border-[#1f1f1f] shrink-0">
+        <Link href="/dashboard" className="w-full h-12 flex items-center justify-center border-b border-[#1f1f1f] hover:bg-[#1a1a1a] transition-colors" title="Dashboard">
+          <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center">
+            <span className="text-black font-bold text-xs">N</span>
+          </div>
+        </Link>
 
-    const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const json = event.target?.result as string;
-                importWorkflow(json);
-            };
-            reader.readAsText(file);
-        }
-    }, [importWorkflow]);
-
-    const handleSearchClick = useCallback(() => {
-        if (!isExpanded) {
-            setIsExpanded(true);
-            setFocusSearch(true);
-        } else {
-            setIsExpanded(false);
-        }
-    }, [isExpanded]);
-
-    const handleQuickAccessClick = useCallback(() => {
-        setIsExpanded(prev => !prev);
-    }, []);
-
-    return (
-        <div className="flex h-full">
-            {/* Main sidebar column - fixed width 48px when closed */}
-            <div className="w-12 h-full bg-[#141414] flex flex-col shrink-0 border-r border-[#2a2a2a]">
-                {/* Logo - Link to Dashboard */}
-                <Link
-                    href="/dashboard"
-                    className="h-12 flex items-center justify-center border-b border-[#2a2a2a] hover:bg-[#1a1a1a] transition-colors"
-                    title="Back to Dashboard"
-                >
-                    <span className="text-white font-bold text-xl">N</span>
-                </Link>
-
-                {/* Icon Buttons */}
-                <div className="flex flex-col items-center pt-4 gap-3">
-                    <Link
-                        href="/dashboard"
-                        className="w-8 h-8 flex items-center justify-center text-white/80 hover:bg-[#2a2a2a] hover:text-white rounded-lg cursor-pointer transition-all"
-                        title="Back to Dashboard"
-                    >
-                        <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
-                    </Link>
-
-                    <button
-                        onClick={handleSearchClick}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer transition-all ${isExpanded ? 'bg-[#333] text-white' : 'text-white/80 hover:bg-[#2a2a2a] hover:text-white'
-                            }`}
-                        title="Search"
-                    >
-                        <Search className="w-4 h-4" strokeWidth={1.5} />
-                    </button>
-
-                    <button
-                        onClick={handleQuickAccessClick}
-                        className="w-8 h-8 flex items-center justify-center text-white/80 hover:bg-[#2a2a2a] hover:text-white rounded-lg cursor-pointer transition-all"
-                        title="Quick Access"
-                    >
-                        <Grid3X3 className="w-4 h-4" strokeWidth={1.5} />
-                    </button>
-                </div>
-            </div>
-
-            {/* Expandable Panel - slides in/out */}
-            <div
-                className="h-full bg-[#141414] flex flex-col overflow-hidden border-r border-[#2a2a2a]"
-                style={{
-                    width: isExpanded ? '240px' : '0px',
-                    transition: 'width 0.25s ease-out',
-                }}
-            >
-                <div className="w-[240px] h-full flex flex-col shrink-0">
-                    {/* Workflow Name Header */}
-                    <div className="h-14 flex items-center px-4 border-b border-[#2a2a2a] shrink-0">
-                        <input
-                            type="text"
-                            value={workflowName}
-                            onChange={(e) => setWorkflowName(e.target.value)}
-                            className="w-full px-3 py-1.5 bg-[#222] border border-[#3a3a3a] rounded-lg text-white text-sm font-medium focus:outline-none focus:border-[#555] placeholder-[#666]"
-                            placeholder="untitled"
-                        />
-                    </div>
-
-                    {/* Search Bar */}
-                    <div className="p-4 border-b border-[#2a2a2a] shrink-0">
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#666]" />
-                            <input
-                                ref={searchInputRef}
-                                type="text"
-                                placeholder="Search nodes..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-8 pr-3 py-1.5 bg-[#222] border border-[#3a3a3a] rounded-lg text-xs text-white placeholder-[#666] focus:outline-none focus:border-[#555]"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Quick Access Section */}
-                    <div className="p-4 flex-1 overflow-y-auto">
-                        <h3 className="text-[10px] font-medium text-white/70 uppercase tracking-wide mb-3">Quick access</h3>
-
-                        <div className="grid grid-cols-2 gap-2">
-                            {filteredNodes.length > 0 ? (
-                                filteredNodes.map((node) => (
-                                    <div
-                                        key={node.type}
-                                        draggable
-                                        onDragStart={(e) => onDragStart(e, node.type)}
-                                        className={`flex flex-col items-center justify-center p-3 bg-transparent border border-[#3a3a3a] hover:bg-[#2a2a2a] rounded-lg cursor-grab active:cursor-grabbing transition-all group ${node.colSpan ? 'col-span-2' : ''
-                                            }`}
-                                    >
-                                        <node.icon className="w-5 h-5 text-white group-hover:text-white mb-1 transition-colors" />
-                                        <span className="text-[10px] text-white group-hover:text-white text-center transition-colors">{node.label}</span>
-                                    </div>
-                                ))
-                            ) : (
-                                <div className="col-span-2 text-center py-4 text-[#666] text-xs">
-                                    No nodes found for &quot;{searchQuery}&quot;
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Tools Section */}
-                        <h3 className="text-[10px] font-medium text-white/70 uppercase tracking-wide mt-5 mb-3">Tools</h3>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button
-                                onClick={handleExport}
-                                className="flex flex-col items-center justify-center p-3 bg-transparent border border-[#3a3a3a] hover:bg-[#2a2a2a] rounded-lg transition-all group"
-                            >
-                                <FileDown className="w-5 h-5 text-white mb-1 transition-colors" />
-                                <span className="text-[10px] text-white transition-colors">Export</span>
-                            </button>
-
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="flex flex-col items-center justify-center p-3 bg-transparent border border-[#3a3a3a] hover:bg-[#2a2a2a] rounded-lg transition-all group"
-                            >
-                                <FileUp className="w-5 h-5 text-white mb-1 transition-colors" />
-                                <span className="text-[10px] text-white transition-colors">Import</span>
-                            </button>
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".json"
-                                onChange={handleImport}
-                                className="hidden"
-                            />
-
-                            <button
-                                onClick={loadSampleWorkflow}
-                                className="col-span-2 flex flex-col items-center justify-center p-3 bg-transparent border border-[#3a3a3a] hover:bg-[#2a2a2a] rounded-lg transition-all group"
-                            >
-                                <Package className="w-5 h-5 text-white mb-1 transition-colors" />
-                                <span className="text-[10px] text-white text-center transition-colors">Sample Workflow</span>
-                            </button>
-                        </div>
-
-                        {/* Actions Section */}
-                        <h3 className="text-[10px] font-medium text-white/70 uppercase tracking-wide mt-5 mb-3">Actions</h3>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={createNewWorkflow}
-                                className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-transparent border border-[#3a3a3a] hover:bg-[#2a2a2a] rounded-lg text-white hover:text-white text-[10px] transition-all"
-                            >
-                                <Plus className="w-3 h-3" />
-                                <span>New</span>
-                            </button>
-                            <button
-                                onClick={saveWorkflow}
-                                className="flex-1 flex items-center justify-center gap-1 px-2 py-2 bg-transparent border border-[#3a3a3a] hover:bg-[#2a2a2a] rounded-lg text-white hover:text-white text-[10px] transition-all"
-                            >
-                                <Save className="w-3 h-3" />
-                                <span>Save</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div className="flex flex-col items-center gap-1 pt-2 px-1">
+          <Link href="/dashboard" title="Back" className="sidebar-icon-btn"><ArrowLeft className="w-4 h-4" /></Link>
+          <button onClick={() => { setOpen(!open); if (!open) setTimeout(() => searchRef.current?.focus(), 200); }} title="Nodes" className={`sidebar-icon-btn${open ? " sidebar-icon-active" : ""}`}>
+            <Brain className="w-4 h-4" />
+          </button>
+          <button onClick={toggleHistory} title="History" className={`sidebar-icon-btn${isHistoryOpen ? " sidebar-icon-active" : ""}`}>
+            <History className="w-4 h-4" />
+          </button>
         </div>
-    );
-};
+      </div>
 
-export default Sidebar;
+      {/* Expandable panel */}
+      <div className="h-full bg-[#111] flex flex-col overflow-hidden border-r border-[#1f1f1f] transition-all duration-200"
+        style={{ width: open ? 248 : 0 }}>
+        <div className="w-[248px] h-full flex flex-col">
+          {/* Workflow name */}
+          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[#1f1f1f] shrink-0">
+            <input
+              type="text"
+              value={workflowName}
+              onChange={(e) => setWorkflowName(e.target.value)}
+              className="flex-1 min-w-0 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-2.5 py-1.5 text-white text-xs font-medium focus:outline-none focus:border-[#444]"
+              placeholder="Untitled Workflow"
+            />
+            <button onClick={() => setOpen(false)} className="w-6 h-6 flex items-center justify-center text-[#555] hover:text-white transition-colors shrink-0">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Search */}
+          <div className="px-3 py-2 border-b border-[#1f1f1f] shrink-0">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#555]" />
+              <input ref={searchRef} type="text" placeholder="Search nodes..." value={search} onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-7 pr-3 py-1.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-[11px] text-white placeholder-[#444] focus:outline-none focus:border-[#444]"
+              />
+            </div>
+          </div>
+
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Quick access */}
+            <div className="px-3 pt-3">
+              <p className="text-[10px] font-semibold text-[#555] uppercase tracking-widest mb-2">Quick Access</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {filtered.map((n) => (
+                  <div
+                    key={n.type}
+                    draggable
+                    onDragStart={(e) => onDragStart(e, n.type)}
+                    onClick={() => {
+                      const pos = { x: 300 + Math.random() * 200, y: 200 + Math.random() * 200 };
+                      useWorkflowStore.getState().addNode(n.type, pos);
+                    }}
+                    className={`node-sidebar-btn${n.span ? " col-span-2" : ""}`}
+                    title={`${n.label} — drag to canvas or click to add`}
+                  >
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center mb-1" style={{ backgroundColor: n.color + "22" }}>
+                      <n.Icon className="w-3.5 h-3.5" style={{ color: n.color }} />
+                    </div>
+                    <span className="text-[10px] font-medium text-[#aaa] text-center leading-tight">{n.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Tools */}
+            <div className="px-3 pt-4">
+              <p className="text-[10px] font-semibold text-[#555] uppercase tracking-widest mb-2">Tools</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button onClick={handleExport} className="node-sidebar-btn">
+                  <FileDown className="w-4 h-4 text-[#666] mb-1" />
+                  <span className="text-[10px] text-[#888]">Export</span>
+                </button>
+                <button onClick={() => fileInputRef.current?.click()} className="node-sidebar-btn">
+                  <FileUp className="w-4 h-4 text-[#666] mb-1" />
+                  <span className="text-[10px] text-[#888]">Import</span>
+                </button>
+                <button onClick={loadSampleWorkflow} className="col-span-2 node-sidebar-btn">
+                  <Package className="w-4 h-4 text-[#666] mb-1" />
+                  <span className="text-[10px] text-[#888]">Load Sample Workflow</span>
+                </button>
+              </div>
+              <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
+            </div>
+
+            {/* Actions */}
+            <div className="px-3 pt-4 pb-4">
+              <p className="text-[10px] font-semibold text-[#555] uppercase tracking-widest mb-2">Actions</p>
+              <div className="flex gap-1.5">
+                <button onClick={createNewWorkflow} className="flex-1 flex items-center justify-center gap-1 py-2 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] rounded-lg text-[#888] hover:text-white text-[10px] transition-colors">
+                  <Plus className="w-3 h-3" /> New
+                </button>
+                <button onClick={() => saveWorkflow()} className="flex-1 flex items-center justify-center gap-1 py-2 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] rounded-lg text-[#888] hover:text-white text-[10px] transition-colors">
+                  <Save className="w-3 h-3" /> Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,1 +1,68 @@
-浩潰瑲笠䠠湡汤ⱥ倠獯瑩潩⁮⁽牦浯∠础晹潬⽷敲捡≴਻浩潰瑲删慥瑣映潲⁭爢慥瑣㬢ਊ硥潰瑲搠晥畡瑬映湵瑣潩⁮灕潬摡楖敤乯摯⡥⁻慤慴素›湡⥹笠 爠瑥牵⁮ਨ††搼癩挠慬獳慎敭∽杢眭楨整爠畯摮摥洭⁤潢摲牥㈭戠牯敤⵲汳瑡ⵥ〲‰⵰‴業⵮⵷㉛〰硰≝ਾ†††搼癩挠慬獳慎敭∽潦瑮戭汯⁤整瑸猭⁭扭㈭琠硥⵴汳瑡ⵥ〸∰唾汰慯⁤楖敤㱯搯癩ਾ†††搼癩挠慬獳慎敭∽整瑸砭⁳整瑸猭慬整㔭〰洠ⵢ∲唾汰慯⁤⁡楦敬瘠慩吠慲獮潬摡瑩⼼楤㹶 ††㰠畢瑴湯挠慬獳慎敭∽杢戭畬ⵥ〵‰整瑸眭楨整爠畯摮摥瀠⵸′祰ㄭ琠硥⵴獸洠ⵢ∲匾汥捥⁴楖敤㱯戯瑵潴㹮 ††㰠楤⁶汣獡乳浡㵥琢硥⵴ㅛ瀰嵸琠硥⵴汳瑡ⵥ〴‰牢慥⵫污≬笾慤慴瘮摩潥牕⁬籼∠潎瘠摩潥甠汰慯敤≤㱽搯癩ਾ†††䠼湡汤⁥祴数∽潳牵散•潰楳楴湯笽潐楳楴湯䈮瑯潴絭椠㵤瘢摩潥畟汲•㸯 †㰠搯癩ਾ†㬩紊਍
+"use client";
+import React, { memo, useCallback, useRef } from "react";
+import { Handle, Position, NodeProps } from "@xyflow/react";
+import { Video, Trash2, Upload } from "lucide-react";
+import { VideoNodeData } from "@/types/workflow";
+import { useWorkflowStore } from "@/store/workflowStore";
+
+const UploadVideoNode = memo(({ id, data, selected }: NodeProps) => {
+  const nodeData = data as VideoNodeData;
+  const { updateNodeData, deleteNode } = useWorkflowStore();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const onUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    updateNodeData(id, { videoUrl: null });
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const json = await res.json() as { url?: string; error?: string };
+      if (json.url) updateNodeData(id, { videoUrl: json.url });
+    } catch { /* silent */ }
+  }, [id, updateNodeData]);
+
+  return (
+    <div className={`node-card${selected ? " node-selected" : ""}${nodeData.isExecuting ? " node-executing" : ""}`} style={{ minWidth: 280 }}>
+      <div className="node-header">
+        <div className="node-header-left">
+          <div className="node-icon node-icon-video"><Video className="w-3 h-3" /></div>
+          <span className="node-title">{nodeData.label || "Upload Video"}</span>
+        </div>
+        <button onClick={() => deleteNode(id)} className="node-delete-btn"><Trash2 className="w-3.5 h-3.5" /></button>
+      </div>
+
+      <div className="node-body">
+        {nodeData.videoUrl ? (
+          <div className="relative group">
+            <video src={nodeData.videoUrl} controls className="w-full rounded-lg border border-[#2a2a2a] max-h-40 bg-black" />
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="absolute top-2 right-2 bg-black/70 hover:bg-black/90 text-white rounded-lg px-2 py-1 text-xs flex items-center gap-1"
+            >
+              <Upload className="w-3 h-3" /> Replace
+            </button>
+          </div>
+        ) : (
+          <div className="node-upload-zone" onClick={() => inputRef.current?.click()}>
+            <Video className="w-6 h-6 text-[#555] mb-1" />
+            <p className="text-xs text-[#555]">Click to upload video</p>
+            <p className="text-[10px] text-[#444] mt-0.5">mp4, mov, webm, m4v</p>
+          </div>
+        )}
+        <input ref={inputRef} type="file" accept="video/mp4,video/mov,video/webm,video/m4v,video/*" className="hidden" onChange={onUpload} />
+      </div>
+
+      <div className="node-handle-row node-handle-row-right">
+        <span className="node-handle-label-right">video</span>
+        <Handle type="source" position={Position.Right} id="source-video" className="node-handle node-handle-video" />
+      </div>
+    </div>
+  );
+});
+
+UploadVideoNode.displayName = "UploadVideoNode";
+export default UploadVideoNode;

@@ -1,182 +1,81 @@
-'use client';
-
-import React, { memo, useCallback, useRef, useState } from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
-import { Trash2, ImageIcon, Upload, X, Loader2 } from 'lucide-react';
-import { ImageNodeData } from '@/types/workflow';
-import { useWorkflowStore } from '@/store/workflowStore';
+"use client";
+import React, { memo, useCallback, useRef } from "react";
+import { Handle, Position, NodeProps } from "@xyflow/react";
+import { ImageIcon, Trash2, Upload } from "lucide-react";
+import { ImageNodeData } from "@/types/workflow";
+import { useWorkflowStore } from "@/store/workflowStore";
 
 const ImageNode = memo(({ id, data, selected }: NodeProps) => {
-    const nodeData = data as ImageNodeData;
-    const { updateNodeData, deleteNode } = useWorkflowStore();
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [isUploading, setIsUploading] = useState(false);
+  const nodeData = data as ImageNodeData;
+  const { updateNodeData, deleteNode } = useWorkflowStore();
+  const inputRef = useRef<HTMLInputElement>(null);
 
-    const handleLabelChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        updateNodeData(id, { label: e.target.value });
-    }, [id, updateNodeData]);
+  const onUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    updateNodeData(id, { imageUrl: null });
 
-    const handleDelete = useCallback(() => {
-        deleteNode(id);
-    }, [id, deleteNode]);
+    const formData = new FormData();
+    formData.append("file", file);
 
-    // Upload image to Cloudinary
-    const uploadToCloudinary = useCallback(async (base64: string) => {
-        setIsUploading(true);
-        try {
-            const response = await fetch('/api/upload', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ image: base64 }),
-            });
+    try {
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const json = await res.json() as { url?: string; error?: string };
+      if (json.url) updateNodeData(id, { imageUrl: json.url });
+    } catch { /* silent */ }
+  }, [id, updateNodeData]);
 
-            const result = await response.json();
+  const onDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const fakeEvent = { target: { files: [file] } } as unknown as React.ChangeEvent<HTMLInputElement>;
+    await onUpload(fakeEvent);
+  }, [onUpload]);
 
-            if (result.success && result.url) {
-                // Store Cloudinary URL instead of base64
-                updateNodeData(id, {
-                    imageUrl: result.url,
-                    imageBase64: base64, // Keep base64 for LLM API calls
-                });
-            } else {
-                console.error('Upload failed:', result.error);
-                // Fallback to base64 if upload fails
-                updateNodeData(id, {
-                    imageUrl: base64,
-                    imageBase64: base64,
-                });
-            }
-        } catch (error) {
-            console.error('Upload error:', error);
-            // Fallback to base64 if upload fails
-            updateNodeData(id, {
-                imageUrl: base64,
-                imageBase64: base64,
-            });
-        } finally {
-            setIsUploading(false);
-        }
-    }, [id, updateNodeData]);
-
-    const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64 = reader.result as string;
-                uploadToCloudinary(base64);
-            };
-            reader.readAsDataURL(file);
-        }
-    }, [uploadToCloudinary]);
-
-    const handleDrop = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-        const file = e.dataTransfer.files[0];
-        if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const base64 = reader.result as string;
-                uploadToCloudinary(base64);
-            };
-            reader.readAsDataURL(file);
-        }
-    }, [uploadToCloudinary]);
-
-    const handleDragOver = useCallback((e: React.DragEvent) => {
-        e.preventDefault();
-    }, []);
-
-    const clearImage = useCallback(() => {
-        updateNodeData(id, {
-            imageUrl: null,
-            imageBase64: null,
-        });
-    }, [id, updateNodeData]);
-
-    // Display URL (prefer Cloudinary URL, fallback to base64)
-    const displayImageSrc = nodeData.imageUrl || nodeData.imageBase64;
-
-    return (
-        <div
-            className={`bg-[#161616] border rounded-lg shadow-lg min-w-[312px] max-w-[416px] transition-all duration-200 ${selected ? 'border-[#444] shadow-white/5' : 'border-[#2a2a2a] hover:border-[#3a3a3a]'
-                }`}
-        >
-            {/* Header */}
-            <div className="flex items-center justify-between px-2 py-1.5 border-b border-[#2a2a2a] bg-[#1a1a1a] rounded-t-lg">
-                <div className="flex items-center gap-2">
-                    <div className="p-1 bg-[#2a2a2a] rounded">
-                        <ImageIcon className="w-3 h-3 text-[#888]" />
-                    </div>
-                    <input
-                        type="text"
-                        value={nodeData.label}
-                        onChange={handleLabelChange}
-                        className="bg-transparent text-white text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#555] rounded px-1 w-16 truncate"
-                    />
-                </div>
-                <button
-                    onClick={handleDelete}
-                    className="p-1 hover:bg-[#333] rounded transition-colors group"
-                >
-                    <Trash2 className="w-3 h-3 text-[#555] group-hover:text-white" />
-                </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-3">
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="hidden"
-                />
-
-                {isUploading ? (
-                    <div className="w-full h-36 border-2 border-dashed border-[#2a2a2a] rounded flex flex-col items-center justify-center gap-2">
-                        <Loader2 className="w-6 h-6 text-[#888] animate-spin" />
-                        <span className="text-xs text-[#555]">Uploading...</span>
-                    </div>
-                ) : displayImageSrc ? (
-                    <div className="relative">
-                        <img
-                            src={displayImageSrc}
-                            alt="Uploaded"
-                            className="w-full h-36 object-cover rounded border border-[#2a2a2a]"
-                        />
-                        <button
-                            onClick={clearImage}
-                            className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-[#444] rounded transition-colors"
-                        >
-                            <X className="w-4 h-4 text-white" />
-                        </button>
-                    </div>
-                ) : (
-                    <div
-                        onClick={() => fileInputRef.current?.click()}
-                        onDrop={handleDrop}
-                        onDragOver={handleDragOver}
-                        className="w-full h-36 border-2 border-dashed border-[#2a2a2a] rounded flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-[#444] hover:bg-[#1a1a1a] transition-all"
-                    >
-                        <Upload className="w-6 h-6 text-[#555]" />
-                        <span className="text-xs text-[#555]">Upload</span>
-                    </div>
-                )}
-            </div>
-
-            {/* Output Handle */}
-            <Handle
-                type="source"
-                position={Position.Right}
-                id="output"
-                style={{ top: '50%' }}
-                className="!w-3 !h-3 !bg-[#666] !border-2 !border-[#888] !transform-none"
-            />
+  return (
+    <div className={`node-card${selected ? " node-selected" : ""}${nodeData.isExecuting ? " node-executing" : ""}`} style={{ minWidth: 280 }}>
+      <div className="node-header">
+        <div className="node-header-left">
+          <div className="node-icon node-icon-image"><ImageIcon className="w-3 h-3" /></div>
+          <span className="node-title">{nodeData.label || "Upload Image"}</span>
         </div>
-    );
+        <button onClick={() => deleteNode(id)} className="node-delete-btn"><Trash2 className="w-3.5 h-3.5" /></button>
+      </div>
+
+      <div className="node-body">
+        {nodeData.imageUrl ? (
+          <div className="relative group">
+            <img src={nodeData.imageUrl} alt="uploaded" className="w-full h-40 object-cover rounded-lg border border-[#2a2a2a]" />
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center rounded-lg transition-opacity"
+            >
+              <Upload className="w-5 h-5 text-white" />
+            </button>
+          </div>
+        ) : (
+          <div
+            className="node-upload-zone"
+            onClick={() => inputRef.current?.click()}
+            onDrop={onDrop}
+            onDragOver={(e) => e.preventDefault()}
+          >
+            <Upload className="w-6 h-6 text-[#555] mb-1" />
+            <p className="text-xs text-[#555]">Click or drag to upload</p>
+            <p className="text-[10px] text-[#444] mt-0.5">jpg, jpeg, png, webp, gif</p>
+          </div>
+        )}
+        <input ref={inputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" className="hidden" onChange={onUpload} />
+      </div>
+
+      <div className="node-handle-row node-handle-row-right">
+        <span className="node-handle-label-right">image</span>
+        <Handle type="source" position={Position.Right} id="source-image" className="node-handle node-handle-image" />
+      </div>
+    </div>
+  );
 });
 
-ImageNode.displayName = 'ImageNode';
-
+ImageNode.displayName = "ImageNode";
 export default ImageNode;

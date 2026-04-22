@@ -1,45 +1,93 @@
-// Workflow type definitions
-
 import { Node, Edge } from "@xyflow/react";
 
-// Custom node data types with index signature for React Flow compatibility
-export interface TextNodeData {
+export type HandleDataType = "text" | "image" | "video";
+
+export interface BaseNodeData {
   label: string;
+  isExecuting?: boolean;
+  [key: string]: unknown;
+}
+
+export interface TextNodeData extends BaseNodeData {
   content: string;
-  [key: string]: unknown;
 }
 
-export interface ImageNodeData {
-  label: string;
+export interface ImageNodeData extends BaseNodeData {
   imageUrl: string | null;
-  imageBase64: string | null;
-  [key: string]: unknown;
 }
 
-export interface LLMNodeData {
-  label: string;
+export interface VideoNodeData extends BaseNodeData {
+  videoUrl: string | null;
+}
+
+export interface LLMNodeData extends BaseNodeData {
   model: string;
   systemPrompt: string;
-  userPrompt: string;
+  userMessage: string;
   response: string | null;
-  generatedImage: string | null; // Base64 image from Clipdrop
   isLoading: boolean;
   error: string | null;
-  imageInputCount?: number; // Number of image input handles (default: 1)
-  [key: string]: unknown;
+  // legacy compat
+  userPrompt?: string;
+  imageInputCount?: number;
+  generatedImage?: string | null;
 }
 
-// Union type for all node data
-export type WorkflowNodeData = TextNodeData | ImageNodeData | LLMNodeData;
+export interface CropImageNodeData extends BaseNodeData {
+  imageUrl: string | null;
+  xPercent: number;
+  yPercent: number;
+  widthPercent: number;
+  heightPercent: number;
+  outputUrl: string | null;
+  isLoading: boolean;
+  error: string | null;
+  imageUrlConnected?: boolean;
+  xPercentConnected?: boolean;
+  yPercentConnected?: boolean;
+  widthPercentConnected?: boolean;
+  heightPercentConnected?: boolean;
+}
 
-// Custom node types
-export type TextNode = Node<TextNodeData, "text">;
-export type ImageNode = Node<ImageNodeData, "image">;
-export type LLMNode = Node<LLMNodeData, "llm">;
+export interface ExtractFrameNodeData extends BaseNodeData {
+  videoUrl: string | null;
+  timestamp: string;
+  outputUrl: string | null;
+  isLoading: boolean;
+  error: string | null;
+  videoUrlConnected?: boolean;
+  timestampConnected?: boolean;
+}
 
-export type WorkflowNode = TextNode | ImageNode | LLMNode;
+// Legacy compat
+export interface ImageNodeDataLegacy extends BaseNodeData {
+  imageUrl: string | null;
+  imageBase64: string | null;
+}
 
-// Workflow state
+export type WorkflowNodeData =
+  | TextNodeData
+  | ImageNodeData
+  | VideoNodeData
+  | LLMNodeData
+  | CropImageNodeData
+  | ExtractFrameNodeData;
+
+export type TextNodeType = Node<TextNodeData, "textNode">;
+export type ImageNodeType = Node<ImageNodeData, "imageNode">;
+export type VideoNodeType = Node<VideoNodeData, "videoNode">;
+export type LLMNodeType = Node<LLMNodeData, "llmNode">;
+export type CropImageNodeType = Node<CropImageNodeData, "cropImageNode">;
+export type ExtractFrameNodeType = Node<ExtractFrameNodeData, "extractFrameNode">;
+
+export type WorkflowNode =
+  | TextNodeType
+  | ImageNodeType
+  | VideoNodeType
+  | LLMNodeType
+  | CropImageNodeType
+  | ExtractFrameNodeType;
+
 export interface Workflow {
   id: string;
   name: string;
@@ -49,26 +97,62 @@ export interface Workflow {
   updatedAt: string;
 }
 
-// API types
-export interface LLMRequest {
-  model: string;
-  systemPrompt?: string;
-  userPrompt: string;
-  images?: string[]; // base64 encoded images
-}
-
-export interface LLMResponse {
-  success: boolean;
-  content?: string;
-  image?: string; // base64 generated image from Clipdrop
-  error?: string;
-}
-
-// Supported OpenAI models with vision (text + image input)
-export const OPENAI_MODELS = [
-  { id: "gpt-4o", name: "GPT-4o" },
-  { id: "gpt-4o-mini", name: "GPT-4o Mini" },
-  { id: "gpt-4-turbo", name: "GPT-4 Turbo" },
+export const GEMINI_MODELS = [
+  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" },
+  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro" },
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash" },
+  { id: "gemini-2.0-flash-lite", name: "Gemini 2.0 Flash Lite" },
 ] as const;
 
-export type OpenAIModel = (typeof OPENAI_MODELS)[number]["id"];
+// Legacy compat
+export const OPENAI_MODELS = GEMINI_MODELS;
+
+export type GeminiModel = (typeof GEMINI_MODELS)[number]["id"];
+
+// Handle type mapping — source handle ID → data type emitted
+export const SOURCE_HANDLE_TYPES: Record<string, HandleDataType> = {
+  "source-text": "text",
+  "source-image": "image",
+  "source-video": "video",
+};
+
+// Target handle type mapping — target handle ID → data type accepted
+export const TARGET_HANDLE_ACCEPTS: Record<string, HandleDataType> = {
+  "target-system_prompt": "text",
+  "target-user_message": "text",
+  "target-images-0": "image",
+  "target-images-1": "image",
+  "target-images-2": "image",
+  "target-image_url": "image",
+  "target-x_percent": "text",
+  "target-y_percent": "text",
+  "target-width_percent": "text",
+  "target-height_percent": "text",
+  "target-video_url": "video",
+  "target-timestamp": "text",
+};
+
+export interface WorkflowRunRecord {
+  id: string;
+  workflowId: string;
+  status: "RUNNING" | "SUCCESS" | "FAILED" | "PARTIAL";
+  duration?: number;
+  scope: "FULL" | "PARTIAL" | "SINGLE";
+  nodeRuns: NodeRunRecord[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NodeRunRecord {
+  id: string;
+  workflowRunId: string;
+  nodeId: string;
+  nodeLabel: string;
+  status: "RUNNING" | "SUCCESS" | "FAILED";
+  duration?: number;
+  inputs: Record<string, unknown>;
+  outputs: Record<string, unknown>;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+}

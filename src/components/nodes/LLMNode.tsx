@@ -1,376 +1,221 @@
 "use client";
-
-import React, { memo, useCallback, useState, useEffect } from "react";
+import React, { memo, useCallback, useEffect } from "react";
 import { Handle, Position, NodeProps, useUpdateNodeInternals } from "@xyflow/react";
-import { MoreHorizontal, Plus, ArrowRight, Loader2, ChevronDown } from "lucide-react";
-import { LLMNodeData, TextNodeData, ImageNodeData, OPENAI_MODELS } from "@/types/workflow";
+import { Brain, Trash2, Play, Loader2, ChevronDown } from "lucide-react";
+import { LLMNodeData, GEMINI_MODELS } from "@/types/workflow";
 import { useWorkflowStore } from "@/store/workflowStore";
 
 const LLMNode = memo(({ id, data, selected }: NodeProps) => {
   const nodeData = data as LLMNodeData;
-  const { updateNodeData, deleteNode, deleteEdgeByHandle, nodes, edges } = useWorkflowStore();
-  // Use imageInputCount from node data to persist across re-renders
-  const imageInputCount = (nodeData.imageInputCount as number) || 1;
-  const [showMenu, setShowMenu] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-
-  // Hook to update React Flow's internal handle registry when handles change
+  const { updateNodeData, deleteNode, deleteEdgeByHandle, nodes, edges, setNodeExecuting } = useWorkflowStore();
   const updateNodeInternals = useUpdateNodeInternals();
 
-  // Update node internals when imageInputCount changes to register new handles
-  useEffect(() => {
-    updateNodeInternals(id);
-  }, [id, imageInputCount, updateNodeInternals]);
+  useEffect(() => { updateNodeInternals(id); }, [id, updateNodeInternals]);
 
-  const connectedHandles = edges
-    .filter((e) => e.target === id)
-    .map((e) => e.targetHandle);
+  const connectedTargets = edges.filter((e) => e.target === id).map((e) => e.targetHandle ?? "");
+  const connectedSources = edges.filter((e) => e.source === id).map((e) => e.sourceHandle ?? "");
 
-  const connectedSourceHandles = edges
-    .filter((e) => e.source === id)
-    .map((e) => e.sourceHandle);
+  const isConnected = (h: string) => connectedTargets.includes(h);
+  const isSourceConnected = (h: string) => connectedSources.includes(h);
 
-  const handleDelete = useCallback(() => {
-    deleteNode(id);
-  }, [id, deleteNode]);
-
-  // Double-click on a connected handle to delete the edge
-  // Single click is reserved for React Flow's connection handling
-  const handleHandleDoubleClick = useCallback((e: React.MouseEvent, handleId: string, handleType: "source" | "target") => {
-    const isConnected = handleType === "target"
-      ? connectedHandles.includes(handleId)
-      : connectedSourceHandles.includes(handleId);
-
-    if (isConnected) {
-      e.stopPropagation();
-      e.preventDefault();
-      deleteEdgeByHandle(id, handleId, handleType);
-    }
-  }, [id, connectedHandles, connectedSourceHandles, deleteEdgeByHandle]);
-
-  const addImageInput = useCallback(() => {
-    if (imageInputCount < 5) {
-      updateNodeData(id, { imageInputCount: imageInputCount + 1 });
-    }
-  }, [imageInputCount, id, updateNodeData]);
-
-  // Helper to convert image URL to base64
-  const urlToBase64 = async (url: string): Promise<string | null> => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(blob);
-      });
-    } catch {
-      return null;
-    }
-  };
+  const onDoubleClickHandle = useCallback((e: React.MouseEvent, hid: string, htype: "source" | "target") => {
+    e.stopPropagation(); e.preventDefault();
+    deleteEdgeByHandle(id, hid, htype);
+  }, [id, deleteEdgeByHandle]);
 
   const collectInputs = useCallback(async () => {
     const incomingEdges = edges.filter((e) => e.target === id);
-    const images: string[] = [];
-    let promptText = "";
-
+    const inputs: Record<string, string> = {};
     for (const edge of incomingEdges) {
-      const sourceNode = nodes.find((n) => n.id === edge.source);
-      if (sourceNode) {
-        const targetHandle = edge.targetHandle;
-        const sourceHandle = edge.sourceHandle;
-
-        if (sourceNode.type === "text") {
-          const textData = sourceNode.data as TextNodeData;
-          if (textData.content && targetHandle === "prompt") {
-            promptText = textData.content;
-          }
-        } else if (sourceNode.type === "image") {
-          const imageData = sourceNode.data as ImageNodeData;
-          // Use base64 if available, otherwise fetch from URL
-          if (imageData.imageBase64) {
-            images.push(imageData.imageBase64);
-          } else if (imageData.imageUrl?.startsWith('http')) {
-            const base64 = await urlToBase64(imageData.imageUrl);
-            if (base64) images.push(base64);
-          }
-        } else if (sourceNode.type === "llm") {
-          const llmData = sourceNode.data as LLMNodeData;
-
-          // Text output → prompt handle
-          if (llmData.response && targetHandle === "prompt" && sourceHandle === "output") {
-            promptText = llmData.response;
-          }
-
-          // Image output → image handle (for chaining generated images)
-          if (llmData.generatedImage && targetHandle?.startsWith("image-") && sourceHandle === "image-output") {
-            images.push(llmData.generatedImage);
-          }
-        }
+      const srcNode = nodes.find((n) => n.id === edge.source);
+      if (!srcNode) continue;
+      const th = edge.targetHandle ?? "";
+      const sh = edge.sourceHandle ?? "";
+      if (srcNode.type === "textNode") {
+        inputs[th] = (srcNode.data as { content: string }).content ?? "";
+      } else if (srcNode.type === "imageNode") {
+        inputs[th] = (srcNode.data as { imageUrl: string | null }).imageUrl ?? "";
+      } else if (srcNode.type === "cropImageNode" || srcNode.type === "extractFrameNode") {
+        inputs[th] = (srcNode.data as { outputUrl: string | null }).outputUrl ?? "";
+      } else if (srcNode.type === "llmNode" && sh === "source-text") {
+        inputs[th] = (srcNode.data as LLMNodeData).response ?? "";
       }
     }
-
-    return { images, promptText };
+    return inputs;
   }, [id, nodes, edges]);
 
   const handleRun = useCallback(async () => {
-    updateNodeData(id, { isLoading: true, error: null, response: null, generatedImage: null });
+    updateNodeData(id, { isLoading: true, error: null, response: null });
+    setNodeExecuting(id, true);
 
     try {
-      const { images, promptText } = await collectInputs();
+      const inputs = await collectInputs();
+      const systemPrompt = inputs["target-system_prompt"] || nodeData.systemPrompt || "";
+      const userMessage = inputs["target-user_message"] || nodeData.userMessage || nodeData.userPrompt || "";
+      const images = Object.entries(inputs).filter(([k]) => k.startsWith("target-images-")).map(([, v]) => v).filter(Boolean);
 
-      // Use connected text first, then userPrompt, then systemPrompt as fallback
-      const fullUserPrompt = promptText || nodeData.userPrompt || nodeData.systemPrompt || "";
-
-      if (!fullUserPrompt) {
-        updateNodeData(id, {
-          error: "Please connect a Prompt input or enter a system prompt",
-          isLoading: false,
-        });
+      if (!userMessage) {
+        updateNodeData(id, { error: "Connect a Text node to user_message or enter a message", isLoading: false });
+        setNodeExecuting(id, false);
         return;
       }
 
-      const response = await fetch("/api/openai", {
+      const scope = "SINGLE";
+      const workflowId = useWorkflowStore.getState().workflowId;
+
+      const res = await fetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: nodeData.model || "gpt-4o",
-          systemPrompt: nodeData.systemPrompt || undefined,
-          userPrompt: fullUserPrompt,
-          images: images.length > 0 ? images : undefined,
-        }),
+        body: JSON.stringify({ workflowId, scope, nodeIds: [id] }),
       });
 
-      const result = await response.json();
-
-      if (result.success) {
-        updateNodeData(id, {
-          response: result.content,
-          generatedImage: result.image || null,
-          isLoading: false
-        });
-      } else {
-        updateNodeData(id, { error: result.error, isLoading: false });
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        throw new Error(err.error ?? "Run failed");
       }
-    } catch (error) {
-      updateNodeData(id, {
-        error: error instanceof Error ? error.message : "An error occurred",
-        isLoading: false,
-      });
-    }
-  }, [id, nodeData, updateNodeData, collectInputs]);
 
-  const showLabels = isHovered;
+      const runResult = await res.json() as { run: { nodeRuns: Array<{ nodeId: string; outputs: { text?: string }; status: string; error?: string }> }; outputs?: Record<string, { text?: string }> };
+      const nodeRun = runResult.run?.nodeRuns?.find((nr) => nr.nodeId === id);
+      const outputText = nodeRun?.outputs?.text ?? runResult.outputs?.[id]?.text ?? "";
+      const nodeError = nodeRun?.error;
+
+      if (nodeRun?.status === "FAILED") {
+        updateNodeData(id, { error: nodeError ?? "Execution failed", isLoading: false });
+      } else {
+        updateNodeData(id, { response: outputText || null, isLoading: false, error: null });
+      }
+
+      const { fetchRuns } = useWorkflowStore.getState();
+      fetchRuns();
+    } catch (err) {
+      updateNodeData(id, { error: err instanceof Error ? err.message : "An error occurred", isLoading: false });
+    } finally {
+      setNodeExecuting(id, false);
+    }
+  }, [id, nodeData, updateNodeData, collectInputs, setNodeExecuting]);
+
+  const imageHandles = [0, 1, 2];
+  const handleBase = 120;
+  const handleSpacing = 28;
 
   return (
-    <div
-      className={`bg - [#2a2a2a] border rounded - xl shadow - lg transition - all duration - 200 ${selected
-        ? "border-[#555] shadow-white/10"
-        : "border-[#3a3a3a] hover:border-[#4a4a4a]"
-        } `}
-      style={{ width: "380px" }}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Prompt Handle */}
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="prompt"
-        style={{ top: "60px", cursor: connectedHandles.includes("prompt") ? "pointer" : "crosshair" }}
-        className={`!w-3 !h-3 !border-2 !border-[#c084fc] ${connectedHandles.includes("prompt") ? "!bg-[#c084fc]" : "!bg-transparent"}`}
-        onDoubleClick={(e) => handleHandleDoubleClick(e, "prompt", "target")}
-      />
-      {(showLabels || !connectedHandles.includes("prompt")) && (
-        <div
-          className="absolute text-xs text-[#c084fc]"
-          style={{ left: "-60px", top: "55px" }}
-        >
-          Prompt*
-        </div>
-      )}
+    <div className={`node-card${selected ? " node-selected" : ""}${nodeData.isExecuting ? " node-executing" : ""}`} style={{ minWidth: 320 }}>
+      {/* Input handles */}
+      <div className="node-handle-row node-handle-row-left" style={{ top: 56 }}>
+        <Handle type="target" position={Position.Left} id="target-system_prompt"
+          className={`node-handle node-handle-text${isConnected("target-system_prompt") ? " node-handle-connected" : ""}`}
+          style={{ top: 56 }}
+          onDoubleClick={(e) => onDoubleClickHandle(e, "target-system_prompt", "target")}
+        />
+        <span className="node-handle-label-left">system_prompt</span>
+      </div>
 
+      <div className="node-handle-row node-handle-row-left" style={{ top: 86 }}>
+        <Handle type="target" position={Position.Left} id="target-user_message"
+          className={`node-handle node-handle-text${isConnected("target-user_message") ? " node-handle-connected" : ""}`}
+          style={{ top: 86 }}
+          onDoubleClick={(e) => onDoubleClickHandle(e, "target-user_message", "target")}
+        />
+        <span className="node-handle-label-left">user_message*</span>
+      </div>
 
-
-      {/* Image Handles */}
-      {Array.from({ length: imageInputCount }).map((_, i) => {
-        const handleId = `image-${i}`;
-        const isConnected = connectedHandles.includes(handleId);
+      {imageHandles.map((i) => {
+        const hid = `target-images-${i}`;
+        const top = handleBase + i * handleSpacing;
         return (
-          <React.Fragment key={i}>
-            <Handle
-              type="target"
-              position={Position.Left}
-              id={handleId}
-              style={{ top: `${90 + i * 30}px`, cursor: isConnected ? "pointer" : "crosshair" }}
-              className={`!w-3 !h-3 !border-2 !border-[#34d399] ${isConnected ? "!bg-[#34d399]" : "!bg-transparent"}`}
-              onDoubleClick={(e) => handleHandleDoubleClick(e, handleId, "target")}
+          <div key={hid} className="node-handle-row node-handle-row-left" style={{ top }}>
+            <Handle type="target" position={Position.Left} id={hid}
+              className={`node-handle node-handle-image${isConnected(hid) ? " node-handle-connected" : ""}`}
+              style={{ top }}
+              onDoubleClick={(e) => onDoubleClickHandle(e, hid, "target")}
             />
-            {(showLabels || !isConnected) && (
-              <div
-                className="absolute text-xs text-[#34d399]"
-                style={{ left: "-55px", top: `${85 + i * 30}px` }}
-              >
-                Image {i + 1}
-              </div>
-            )}
-          </React.Fragment>
+            <span className="node-handle-label-left">image {i + 1}</span>
+          </div>
         );
       })}
 
-      {/* Text Output Handle */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="output"
-        style={{ top: "60px", cursor: connectedSourceHandles.includes("output") ? "pointer" : "crosshair" }}
-        className={`!w-3 !h-3 !border-2 !border-[#c084fc] ${connectedSourceHandles.includes("output") ? "!bg-[#c084fc]" : "!bg-transparent"}`}
-        onDoubleClick={(e) => handleHandleDoubleClick(e, "output", "source")}
-      />
-      {showLabels && (
-        <div
-          className="absolute text-xs text-[#c084fc]"
-          style={{ right: "-35px", top: "55px" }}
-        >
-          Text
-        </div>
-      )}
-
-      {/* Image Output Handle */}
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="image-output"
-        style={{ top: "90px", cursor: connectedSourceHandles.includes("image-output") ? "pointer" : "crosshair" }}
-        className={`!w-3 !h-3 !border-2 !border-[#34d399] ${connectedSourceHandles.includes("image-output") ? "!bg-[#34d399]" : "!bg-transparent"}`}
-        onDoubleClick={(e) => handleHandleDoubleClick(e, "image-output", "source")}
-      />
-      {showLabels && (
-        <div
-          className="absolute text-xs text-[#34d399]"
-          style={{ right: "-40px", top: "85px" }}
-        >
-          Image
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#3a3a3a]">
-        <div className="flex items-center gap-2">
-          <span className="text-white text-base font-medium">LLM</span>
-          <div className="relative">
-            <select
-              value={nodeData.model || "gpt-4o"}
-              onChange={(e) => updateNodeData(id, { model: e.target.value })}
-              className="appearance-none bg-[#1a1a1a] border border-[#3a3a3a] text-[#aaa] text-xs rounded px-2 py-1 pr-6 focus:outline-none focus:border-[#555] cursor-pointer hover:border-[#555]"
-            >
-              {OPENAI_MODELS.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[#666] pointer-events-none" />
-          </div>
-        </div>
-        <div className="relative">
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="p-1 hover:bg-[#3a3a3a] rounded transition-colors"
-          >
-            <MoreHorizontal className="w-5 h-5 text-[#888]" />
-          </button>
-          {showMenu && (
-            <div className="absolute right-0 top-8 z-10 bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg shadow-xl">
-              <button
-                onClick={() => {
-                  handleDelete();
-                  setShowMenu(false);
-                }}
-                className="px-4 py-2 text-sm text-red-400 hover:bg-[#2a2a2a]"
-              >
-                Delete
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Prompt Input Area */}
-      <div className="px-4 pt-4">
-        <textarea
-          value={nodeData.systemPrompt || ""}
-          onChange={(e) => updateNodeData(id, { systemPrompt: e.target.value })}
-          placeholder="Enter system prompt or instructions..."
-          className="w-full h-16 bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg p-3 text-sm text-[#bbb] font-normal placeholder-[#555] resize-none focus:outline-none focus:border-[#555] transition-colors"
+      {/* Output handle */}
+      <div className="node-handle-row node-handle-row-right" style={{ top: 70 }}>
+        <span className="node-handle-label-right">output</span>
+        <Handle type="source" position={Position.Right} id="source-text"
+          className={`node-handle node-handle-text${isSourceConnected("source-text") ? " node-handle-connected" : ""}`}
+          style={{ top: 70 }}
+          onDoubleClick={(e) => onDoubleClickHandle(e, "source-text", "source")}
         />
       </div>
 
-      {/* Response Area */}
-      <div className="p-4">
-        <div className="w-full min-h-[140px] bg-[#222] border border-[#3a3a3a] rounded-lg p-4 max-h-[300px] overflow-y-auto">
+      {/* Header */}
+      <div className="node-header">
+        <div className="node-header-left">
+          <div className="node-icon node-icon-llm"><Brain className="w-3 h-3" /></div>
+          <span className="node-title">{nodeData.label || "Run LLM"}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="relative">
+            <select
+              value={nodeData.model || "gemini-1.5-flash"}
+              onChange={(e) => updateNodeData(id, { model: e.target.value })}
+              className="node-select pr-5"
+            >
+              {GEMINI_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-1 top-1/2 -translate-y-1/2 w-3 h-3 text-[#666] pointer-events-none" />
+          </div>
+          <button onClick={() => deleteNode(id)} className="node-delete-btn"><Trash2 className="w-3.5 h-3.5" /></button>
+        </div>
+      </div>
+
+      {/* System prompt input if not connected */}
+      {!isConnected("target-system_prompt") && (
+        <div className="px-3 pt-2">
+          <textarea
+            value={nodeData.systemPrompt || ""}
+            onChange={(e) => updateNodeData(id, { systemPrompt: e.target.value })}
+            placeholder="System instructions (optional)..."
+            className="node-textarea"
+            rows={2}
+          />
+        </div>
+      )}
+
+      {/* User message if not connected */}
+      {!isConnected("target-user_message") && (
+        <div className="px-3 pt-2">
+          <textarea
+            value={(nodeData.userMessage || nodeData.userPrompt) ?? ""}
+            onChange={(e) => updateNodeData(id, { userMessage: e.target.value })}
+            placeholder="User message (required)..."
+            className="node-textarea"
+            rows={3}
+          />
+        </div>
+      )}
+
+      {/* Response area */}
+      <div className="node-body">
+        <div className="node-output-area">
           {nodeData.isLoading ? (
-            <div className="flex flex-col items-center justify-center h-[110px] gap-2">
-              <Loader2 className="w-6 h-6 text-[#888] animate-spin" />
-              <span className="text-xs text-[#666]">Analyzing intent & generating...</span>
+            <div className="flex items-center gap-2 justify-center h-16">
+              <Loader2 className="w-4 h-4 text-[#7c3aed] animate-spin" />
+              <span className="text-xs text-[#666]">Generating...</span>
             </div>
           ) : nodeData.error ? (
-            <p className="text-sm text-red-400">{nodeData.error}</p>
-          ) : (nodeData.response || nodeData.generatedImage) ? (
-            <div className="space-y-3">
-              {/* Generated Image - shown first/top */}
-              {nodeData.generatedImage && (
-                <div>
-                  <div className="relative rounded-lg overflow-hidden border border-[#3a3a3a]">
-                    <img
-                      src={nodeData.generatedImage}
-                      alt="Generated"
-                      className="w-full h-auto max-h-[200px] object-contain bg-[#1a1a1a]"
-                    />
-                  </div>
-                  <a
-                    href={nodeData.generatedImage}
-                    download="generated-image.png"
-                    className="inline-flex items-center gap-1 mt-2 text-xs text-[#34d399] hover:text-[#4ade80] transition-colors"
-                  >
-                    ↓ Download Image
-                  </a>
-                </div>
-              )}
-              {/* Text Response - shown below image */}
-              {nodeData.response && (
-                <p className="text-sm text-[#ccc] whitespace-pre-wrap">
-                  {nodeData.response}
-                </p>
-              )}
-            </div>
+            <p className="text-xs text-red-400 whitespace-pre-wrap">{nodeData.error}</p>
+          ) : nodeData.response ? (
+            <p className="text-xs text-[#ccc] whitespace-pre-wrap leading-relaxed">{nodeData.response}</p>
           ) : (
-            <p className="text-sm text-[#666]">
-              Text or image will appear here
-            </p>
+            <p className="text-xs text-[#444]">Response will appear here</p>
           )}
         </div>
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center justify-between px-4 py-3 border-t border-[#3a3a3a]">
-        <button
-          onClick={addImageInput}
-          disabled={imageInputCount >= 5}
-          className="flex items-center gap-2 text-xs text-[#888] hover:text-white disabled:opacity-50 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add another image input</span>
-        </button>
-
-        <button
-          onClick={handleRun}
-          disabled={nodeData.isLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-[#3a3a3a] hover:bg-[#4a4a4a] disabled:opacity-50 text-white text-xs font-medium rounded-lg transition-all"
-        >
-          <ArrowRight className="w-4 h-4" />
-          <span>Run Model</span>
+      {/* Run button */}
+      <div className="node-footer">
+        <button onClick={handleRun} disabled={nodeData.isLoading} className="node-run-btn">
+          {nodeData.isLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
+          <span>Run Node</span>
         </button>
       </div>
     </div>
@@ -378,6 +223,4 @@ const LLMNode = memo(({ id, data, selected }: NodeProps) => {
 });
 
 LLMNode.displayName = "LLMNode";
-
 export default LLMNode;
-

@@ -1,1 +1,15 @@
-浩潰瑲笠倠楲浳䍡楬湥⁴⁽牦浯∠灀楲浳⽡汣敩瑮㬢਍潣獮⁴汧扯污潆偲楲浳⁡‽汧扯污桔獩愠⁳湵湫睯⁮獡笠瀠楲浳㩡倠楲浳䍡楬湥⁴㭽਍硥潰瑲挠湯瑳瀠楲浳⁡‽汧扯污潆偲楲浳⹡牰獩慭簠⁼敮⁷牐獩慭汃敩瑮⤨഻椊⁦瀨潲散獳攮癮丮䑏彅久⁖㴡‽瀢潲畤瑣潩≮ 汧扯污潆偲楲浳⹡牰獩慭㴠瀠楲浳㭡਍
+import { PrismaClient } from "@/generated/prisma";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { Pool } from "pg";
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+
+function createPrismaClient() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const adapter = new PrismaPg(pool);
+  return new PrismaClient({ adapter } as ConstructorParameters<typeof PrismaClient>[0]);
+}
+
+export const prisma = globalForPrisma.prisma ?? createPrismaClient();
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

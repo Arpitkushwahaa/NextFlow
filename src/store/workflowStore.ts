@@ -1,101 +1,106 @@
 import { create } from "zustand";
-import {
-  Node,
-  Edge,
-  addEdge,
-  Connection,
-  applyNodeChanges,
-  applyEdgeChanges,
-  NodeChange,
-  EdgeChange,
-} from "@xyflow/react";
-import {
-  WorkflowNode,
-  TextNodeData,
-  ImageNodeData,
-  LLMNodeData,
-  Workflow,
-} from "@/types/workflow";
+import { Node, Edge, addEdge, Connection, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from "@xyflow/react";
+import { WorkflowNode, TextNodeData, ImageNodeData, VideoNodeData, LLMNodeData, CropImageNodeData, ExtractFrameNodeData, Workflow, SOURCE_HANDLE_TYPES, TARGET_HANDLE_ACCEPTS } from "@/types/workflow";
 
-interface HistoryState {
-  nodes: WorkflowNode[];
-  edges: Edge[];
+interface HistoryState { nodes: WorkflowNode[]; edges: Edge[] }
+
+export interface WorkflowRunEntry {
+  id: string;
+  workflowId: string;
+  status: "RUNNING" | "SUCCESS" | "FAILED" | "PARTIAL";
+  duration?: number;
+  scope: "FULL" | "PARTIAL" | "SINGLE";
+  nodeRuns: NodeRunEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NodeRunEntry {
+  id: string;
+  workflowRunId: string;
+  nodeId: string;
+  nodeLabel: string;
+  status: "RUNNING" | "SUCCESS" | "FAILED";
+  duration?: number;
+  inputs: Record<string, unknown>;
+  outputs: Record<string, unknown>;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface WorkflowState {
-  // Current workflow
   workflowId: string;
   workflowName: string;
   nodes: WorkflowNode[];
   edges: Edge[];
-
-  // History for undo/redo
   history: HistoryState[];
   historyIndex: number;
+  runs: WorkflowRunEntry[];
+  isHistoryOpen: boolean;
+  isSidebarOpen: boolean;
 
-  // Actions
   setNodes: (nodes: WorkflowNode[]) => void;
   setEdges: (edges: Edge[]) => void;
   onNodesChange: (changes: NodeChange<WorkflowNode>[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
   onConnect: (connection: Connection) => void;
-
-  addNode: (
-    type: "text" | "image" | "llm",
-    position: { x: number; y: number }
-  ) => void;
-  updateNodeData: (
-    nodeId: string,
-    data: Partial<TextNodeData | ImageNodeData | LLMNodeData>
-  ) => void;
+  addNode: (type: string, position: { x: number; y: number }) => void;
+  updateNodeData: (nodeId: string, data: Partial<Record<string, unknown>>) => void;
   deleteNode: (nodeId: string) => void;
   deleteEdgeByHandle: (nodeId: string, handleId: string, handleType: "source" | "target") => void;
+  setNodeExecuting: (nodeId: string, isExecuting: boolean) => void;
 
-  // Undo/Redo
   saveHistory: () => void;
   undo: () => void;
   redo: () => void;
   canUndo: () => boolean;
   canRedo: () => boolean;
 
-  // Persistence
   setWorkflowId: (id: string) => void;
-  saveWorkflow: () => void;
-  loadWorkflow: (id: string) => void;
+  setWorkflowName: (name: string) => void;
+  saveWorkflow: () => Promise<void>;
+  loadWorkflow: (id: string) => Promise<void>;
+  loadWorkflowLocal: (id: string) => void;
+  saveWorkflowLocal: () => void;
   loadSampleWorkflow: () => void;
   getWorkflowList: () => Workflow[];
   exportWorkflow: () => string;
   importWorkflow: (json: string) => void;
-  setWorkflowName: (name: string) => void;
   createNewWorkflow: () => void;
   resetWorkflow: () => void;
+
+  setRuns: (runs: WorkflowRunEntry[]) => void;
+  addRun: (run: WorkflowRunEntry) => void;
+  fetchRuns: () => Promise<void>;
+
+  toggleHistory: () => void;
+  toggleSidebar: () => void;
+  setHistoryOpen: (open: boolean) => void;
 }
 
-const generateId = () =>
-  `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const genId = () => `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-const createTextNodeData = (): TextNodeData => ({
-  label: "Text Input",
-  content: "",
-});
+function createNodeData(type: string): Record<string, unknown> {
+  switch (type) {
+    case "textNode": return { label: "Text Input", content: "", isExecuting: false } satisfies TextNodeData;
+    case "imageNode": return { label: "Upload Image", imageUrl: null, isExecuting: false } satisfies ImageNodeData;
+    case "videoNode": return { label: "Upload Video", videoUrl: null, isExecuting: false } satisfies VideoNodeData;
+    case "llmNode": return { label: "Run LLM", model: "gemini-1.5-flash", systemPrompt: "", userMessage: "", response: null, isLoading: false, error: null, isExecuting: false } satisfies LLMNodeData;
+    case "cropImageNode": return { label: "Crop Image", imageUrl: null, xPercent: 0, yPercent: 0, widthPercent: 80, heightPercent: 80, outputUrl: null, isLoading: false, error: null, isExecuting: false } satisfies CropImageNodeData;
+    case "extractFrameNode": return { label: "Extract Frame", videoUrl: null, timestamp: "50%", outputUrl: null, isLoading: false, error: null, isExecuting: false } satisfies ExtractFrameNodeData;
+    default: return { label: "Unknown", isExecuting: false };
+  }
+}
 
-const createImageNodeData = (): ImageNodeData => ({
-  label: "Image",
-  imageUrl: null,
-  imageBase64: null,
-});
-
-const createLLMNodeData = (): LLMNodeData => ({
-  label: "LLM",
-  model: "gpt-4o",
-  systemPrompt: "",
-  userPrompt: "",
-  response: null,
-  generatedImage: null,
-  isLoading: false,
-  error: null,
-  imageInputCount: 1,
-});
+function getHandleDataType(nodeType: string | undefined, handleId: string | null | undefined): string | null {
+  if (!handleId) return null;
+  if (SOURCE_HANDLE_TYPES[handleId]) return SOURCE_HANDLE_TYPES[handleId];
+  if (TARGET_HANDLE_ACCEPTS[handleId]) return TARGET_HANDLE_ACCEPTS[handleId];
+  // Dynamic image handles
+  if (handleId.startsWith("target-images-")) return "image";
+  return null;
+}
 
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   workflowId: "workflow_default",
@@ -104,216 +109,127 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   edges: [],
   history: [],
   historyIndex: -1,
+  runs: [],
+  isHistoryOpen: true,
+  isSidebarOpen: true,
 
   setWorkflowId: (id) => set({ workflowId: id }),
+  setWorkflowName: (name) => set({ workflowName: name }),
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
+  setRuns: (runs) => set({ runs }),
+  addRun: (run) => set((s) => ({ runs: [run, ...s.runs] })),
+  toggleHistory: () => set((s) => ({ isHistoryOpen: !s.isHistoryOpen })),
+  toggleSidebar: () => set((s) => ({ isSidebarOpen: !s.isSidebarOpen })),
+  setHistoryOpen: (open) => set({ isHistoryOpen: open }),
 
-  onNodesChange: (changes) => {
-    set({
-      nodes: applyNodeChanges(changes, get().nodes) as WorkflowNode[],
-    });
-  },
-
-  onEdgesChange: (changes) => {
-    set({
-      edges: applyEdgeChanges(changes, get().edges),
-    });
-  },
+  onNodesChange: (changes) => set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) as WorkflowNode[] })),
+  onEdgesChange: (changes) => set((s) => ({ edges: applyEdgeChanges(changes, s.edges) })),
 
   onConnect: (connection) => {
     const { nodes, edges } = get();
-    const targetHandle = connection.targetHandle;
+    const sourceHandleType = getHandleDataType(nodes.find((n) => n.id === connection.source)?.type, connection.sourceHandle);
+    const targetHandleType = getHandleDataType(nodes.find((n) => n.id === connection.target)?.type, connection.targetHandle);
 
-    // Bug fix #2: Check if target handle already has a connection
-    // Prevent multiple connections to the same target handle
-    const existingConnection = edges.find(
-      (edge) => edge.target === connection.target && edge.targetHandle === targetHandle
-    );
-    if (existingConnection) {
-      // Target handle already has a connection - don't allow another
-      return;
-    }
+    if (sourceHandleType && targetHandleType && sourceHandleType !== targetHandleType) return;
 
-    // Bug fix #1: Validate connection types
-    // Image handles should only accept image nodes OR LLM image-output
-    if (targetHandle && targetHandle.startsWith("image-")) {
-      const sourceNode = nodes.find((n) => n.id === connection.source);
-      const sourceHandle = connection.sourceHandle;
-
-      // Allow: image nodes OR LLM nodes with image-output handle
-      const isValidImageSource =
-        sourceNode?.type === "image" ||
-        (sourceNode?.type === "llm" && sourceHandle === "image-output");
-
-      if (!isValidImageSource) {
-        // Don't allow non-image sources to connect to image handles
-        return;
-      }
-    }
-
-    // Prompt handle should only accept text nodes or LLM output
-    if (targetHandle === "prompt") {
-      const sourceNode = nodes.find((n) => n.id === connection.source);
-      if (sourceNode && sourceNode.type === "image") {
-        // Don't allow image nodes to connect to prompt handles
-        return;
-      }
-    }
-
-    // Create new edge
-    const newEdge = {
-      ...connection,
-      id: `edge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      animated: true,
-      style: { stroke: "#444", strokeWidth: 2 },
-    };
+    const existingConn = edges.find((e) => e.target === connection.target && e.targetHandle === connection.targetHandle);
+    if (existingConn) return;
 
     get().saveHistory();
-    set({
-      edges: [...edges, newEdge],
-    });
+    set({ edges: addEdge({ ...connection, id: `edge_${Date.now()}`, animated: true, style: { stroke: "#7c3aed", strokeWidth: 2 } }, edges) });
   },
 
   addNode: (type, position) => {
     get().saveHistory();
-    const id = generateId();
-    let data: TextNodeData | ImageNodeData | LLMNodeData;
-
-    switch (type) {
-      case "text":
-        data = createTextNodeData();
-        break;
-      case "image":
-        data = createImageNodeData();
-        break;
-      case "llm":
-        data = createLLMNodeData();
-        break;
-    }
-
-    const newNode: WorkflowNode = {
-      id,
-      type,
-      position,
-      data,
-    } as WorkflowNode;
-
-    set({ nodes: [...get().nodes, newNode] });
+    const id = genId();
+    const newNode = { id, type, position, data: createNodeData(type) } as WorkflowNode;
+    set((s) => ({ nodes: [...s.nodes, newNode] }));
   },
 
   updateNodeData: (nodeId, data) => {
-    set({
-      nodes: get().nodes.map((node) =>
-        node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
-      ) as WorkflowNode[],
-    });
+    set((s) => ({ nodes: s.nodes.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, ...data } } : n) as WorkflowNode[] }));
+  },
+
+  setNodeExecuting: (nodeId, isExecuting) => {
+    set((s) => ({ nodes: s.nodes.map((n) => n.id === nodeId ? { ...n, data: { ...n.data, isExecuting } } : n) as WorkflowNode[] }));
   },
 
   deleteNode: (nodeId) => {
     get().saveHistory();
-    set({
-      nodes: get().nodes.filter((node) => node.id !== nodeId),
-      edges: get().edges.filter(
-        (edge) => edge.source !== nodeId && edge.target !== nodeId
-      ),
-    });
+    set((s) => ({ nodes: s.nodes.filter((n) => n.id !== nodeId), edges: s.edges.filter((e) => e.source !== nodeId && e.target !== nodeId) }));
   },
 
   deleteEdgeByHandle: (nodeId, handleId, handleType) => {
-    const { edges } = get();
-    const edgeToDelete = edges.find((edge) => {
-      if (handleType === "target") {
-        return edge.target === nodeId && edge.targetHandle === handleId;
-      } else {
-        return edge.source === nodeId && edge.sourceHandle === handleId;
-      }
-    });
-
-    if (edgeToDelete) {
-      get().saveHistory();
-      set({
-        edges: edges.filter((edge) => edge.id !== edgeToDelete.id),
-      });
-    }
+    const edge = get().edges.find((e) => handleType === "target" ? (e.target === nodeId && e.targetHandle === handleId) : (e.source === nodeId && e.sourceHandle === handleId));
+    if (edge) { get().saveHistory(); set((s) => ({ edges: s.edges.filter((e) => e.id !== edge.id) })); }
   },
 
   saveHistory: () => {
     const { nodes, edges, history, historyIndex } = get();
-    const newHistory = history.slice(0, historyIndex + 1);
-    newHistory.push({
-      nodes: JSON.parse(JSON.stringify(nodes)),
-      edges: JSON.parse(JSON.stringify(edges)),
-    });
-
-    // Keep only last 50 states
-    if (newHistory.length > 50) {
-      newHistory.shift();
-    }
-
-    set({
-      history: newHistory,
-      historyIndex: newHistory.length - 1,
-    });
+    const newHistory = [...history.slice(0, historyIndex + 1), { nodes: JSON.parse(JSON.stringify(nodes)), edges: JSON.parse(JSON.stringify(edges)) }];
+    if (newHistory.length > 50) newHistory.shift();
+    set({ history: newHistory, historyIndex: newHistory.length - 1 });
   },
 
   undo: () => {
     const { history, historyIndex } = get();
-    if (historyIndex > 0) {
-      const prevState = history[historyIndex - 1];
-      set({
-        nodes: prevState.nodes,
-        edges: prevState.edges,
-        historyIndex: historyIndex - 1,
-      });
-    }
+    if (historyIndex > 0) set({ nodes: history[historyIndex - 1].nodes, edges: history[historyIndex - 1].edges, historyIndex: historyIndex - 1 });
   },
 
   redo: () => {
     const { history, historyIndex } = get();
-    if (historyIndex < history.length - 1) {
-      const nextState = history[historyIndex + 1];
-      set({
-        nodes: nextState.nodes,
-        edges: nextState.edges,
-        historyIndex: historyIndex + 1,
-      });
-    }
+    if (historyIndex < history.length - 1) set({ nodes: history[historyIndex + 1].nodes, edges: history[historyIndex + 1].edges, historyIndex: historyIndex + 1 });
   },
 
   canUndo: () => get().historyIndex > 0,
   canRedo: () => get().historyIndex < get().history.length - 1,
 
-  saveWorkflow: () => {
+  saveWorkflowLocal: () => {
     const { workflowId, workflowName, nodes, edges } = get();
-    const workflow: Workflow = {
-      id: workflowId,
-      name: workflowName,
-      nodes,
-      edges,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    // Save to localStorage
+    const workflow = { id: workflowId, name: workflowName, nodes, edges, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
     const workflows = JSON.parse(localStorage.getItem("workflows") || "{}");
     workflows[workflowId] = workflow;
     localStorage.setItem("workflows", JSON.stringify(workflows));
   },
 
-  loadWorkflow: (id) => {
-    const workflows = JSON.parse(localStorage.getItem("workflows") || "{}");
-    const workflow = workflows[id];
-    if (workflow) {
-      set({
-        workflowId: workflow.id,
-        workflowName: workflow.name,
-        nodes: workflow.nodes,
-        edges: workflow.edges,
-        history: [],
-        historyIndex: -1,
+  saveWorkflow: async () => {
+    const { workflowId, workflowName, nodes, edges } = get();
+    get().saveWorkflowLocal();
+    try {
+      const res = await fetch(`/api/workflows/${workflowId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: workflowName, nodes, edges }),
       });
-    }
+      if (!res.ok) { await fetch("/api/workflows", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: workflowName, nodes, edges }) }); }
+    } catch { /* silent */ }
+  },
+
+  loadWorkflowLocal: (id) => {
+    const workflows = JSON.parse(localStorage.getItem("workflows") || "{}");
+    const wf = workflows[id];
+    if (wf) set({ workflowId: wf.id, workflowName: wf.name, nodes: wf.nodes, edges: wf.edges, history: [], historyIndex: -1 });
+  },
+
+  loadWorkflow: async (id) => {
+    get().loadWorkflowLocal(id);
+    try {
+      const res = await fetch(`/api/workflows/${id}`);
+      if (res.ok) {
+        const wf = await res.json() as { id: string; title: string; nodes: WorkflowNode[]; edges: Edge[] };
+        set({ workflowId: wf.id, workflowName: wf.title, nodes: wf.nodes, edges: wf.edges, history: [], historyIndex: -1 });
+      }
+    } catch { /* use local */ }
+  },
+
+  fetchRuns: async () => {
+    const { workflowId } = get();
+    if (!workflowId) return;
+    try {
+      const res = await fetch(`/api/runs?workflowId=${workflowId}`);
+      if (res.ok) { const runs = await res.json() as WorkflowRunEntry[]; set({ runs: Array.isArray(runs) ? runs : [] }); }
+    } catch { /* silent */ }
   },
 
   getWorkflowList: () => {
@@ -323,207 +239,43 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   loadSampleWorkflow: () => {
     const sampleNodes: WorkflowNode[] = [
-      // Input nodes
-      {
-        id: "img_product",
-        type: "image",
-        position: { x: 50, y: 150 },
-        data: {
-          label: "Product Photo",
-          imageUrl: "/images/cetaphil-sample.jpg",
-          imageBase64: null,
-        },
-      },
-      {
-        id: "text_specs",
-        type: "text",
-        position: { x: 50, y: 400 },
-        data: {
-          label: "Product Name & Specs",
-          content:
-            "Cetaphil Paraben, Sulphate-Free Gentle Skin Hydrating Face Wash Cleanser with Niacinamide, Vitamin B5 for Dry to Normal, Sensitive Skin - 125ml",
-        },
-      },
-      // Main analysis LLM
-      {
-        id: "llm_analyze",
-        type: "llm",
-        position: { x: 450, y: 200 },
-        data: {
-          label: "Analyze Product",
-          model: "gpt-4o",
-          systemPrompt:
-            "You are a product analyst. Analyze the product image and specifications provided.",
-          userPrompt:
-            "Analyze this product and provide key selling points and target audience.",
-          response: null,
-          generatedImage: null,
-          isLoading: false,
-          error: null,
-        },
-      },
-      // Content generation LLMs
-      {
-        id: "llm_instagram",
-        type: "llm",
-        position: { x: 900, y: 50 },
-        data: {
-          label: "Write Instagram Caption",
-          model: "gpt-4o",
-          systemPrompt: "Write Instagram caption for the described product.",
-          userPrompt:
-            "Create an engaging Instagram caption for this product with relevant hashtags.",
-          response: null,
-          generatedImage: null,
-          isLoading: false,
-          error: null,
-        },
-      },
-      {
-        id: "llm_seo",
-        type: "llm",
-        position: { x: 900, y: 320 },
-        data: {
-          label: "Write SEO Meta Description",
-          model: "gpt-4o",
-          systemPrompt: "Write SEO meta description for the described product.",
-          userPrompt:
-            "Write an SEO-optimized meta description (under 160 characters) for this product.",
-          response: null,
-          generatedImage: null,
-          isLoading: false,
-          error: null,
-        },
-      },
-      {
-        id: "llm_amazon",
-        type: "llm",
-        position: { x: 900, y: 590 },
-        data: {
-          label: "Write Amazon Listing",
-          model: "gpt-4o",
-          systemPrompt: "Write Amazon listing for the following described product.",
-          userPrompt:
-            "Based on the product analysis, write a compelling Amazon product listing with title, bullet points, and description.",
-          response: null,
-          generatedImage: null,
-          isLoading: false,
-          error: null,
-        },
-      },
+      { id: "n_img1", type: "imageNode", position: { x: 60, y: 180 }, data: { label: "Upload Product Photo", imageUrl: null, isExecuting: false } } as WorkflowNode,
+      { id: "n_crop1", type: "cropImageNode", position: { x: 360, y: 180 }, data: { label: "Crop Image", imageUrl: null, xPercent: 10, yPercent: 10, widthPercent: 80, heightPercent: 80, outputUrl: null, isLoading: false, error: null, isExecuting: false } } as WorkflowNode,
+      { id: "n_txt1", type: "textNode", position: { x: 60, y: 420 }, data: { label: "System Prompt", content: "You are a professional marketing copywriter. Generate a compelling one-paragraph product description.", isExecuting: false } } as WorkflowNode,
+      { id: "n_txt2", type: "textNode", position: { x: 60, y: 620 }, data: { label: "Product Details", content: "Product: Wireless Bluetooth Headphones. Features: Noise cancellation, 30-hour battery, foldable design.", isExecuting: false } } as WorkflowNode,
+      { id: "n_llm1", type: "llmNode", position: { x: 680, y: 280 }, data: { label: "Product Description", model: "gemini-1.5-flash", systemPrompt: "", userMessage: "", response: null, isLoading: false, error: null, isExecuting: false } } as WorkflowNode,
+      { id: "n_vid1", type: "videoNode", position: { x: 60, y: 820 }, data: { label: "Upload Demo Video", videoUrl: null, isExecuting: false } } as WorkflowNode,
+      { id: "n_frame1", type: "extractFrameNode", position: { x: 360, y: 820 }, data: { label: "Extract Frame", videoUrl: null, timestamp: "50%", outputUrl: null, isLoading: false, error: null, isExecuting: false } } as WorkflowNode,
+      { id: "n_txt3", type: "textNode", position: { x: 680, y: 660 }, data: { label: "Social Media Prompt", content: "You are a social media manager. Create a tweet-length marketing post based on the product image and video frame.", isExecuting: false } } as WorkflowNode,
+      { id: "n_llm2", type: "llmNode", position: { x: 1000, y: 460 }, data: { label: "Marketing Summary", model: "gemini-1.5-flash", systemPrompt: "", userMessage: "", response: null, isLoading: false, error: null, isExecuting: false } } as WorkflowNode,
     ];
-
+    const edgeStyle = { stroke: "#7c3aed", strokeWidth: 2 };
     const sampleEdges: Edge[] = [
-      // Image → LLM Analyze (Image input)
-      {
-        id: "e1",
-        source: "img_product",
-        target: "llm_analyze",
-        targetHandle: "image-0",
-        animated: true,
-        style: { stroke: "#34d399", strokeWidth: 2 },
-      },
-      // Text Specs → LLM Analyze (Prompt input)
-      {
-        id: "e2",
-        source: "text_specs",
-        target: "llm_analyze",
-        targetHandle: "prompt",
-        animated: true,
-        style: { stroke: "#c084fc", strokeWidth: 2 },
-      },
-      // LLM Analyze → Write Amazon (Prompt input)
-      {
-        id: "e3",
-        source: "llm_analyze",
-        sourceHandle: "output",
-        target: "llm_amazon",
-        targetHandle: "prompt",
-        animated: true,
-        style: { stroke: "#c084fc", strokeWidth: 2 },
-      },
-      // LLM Analyze → Write Instagram (Prompt input)
-      {
-        id: "e4",
-        source: "llm_analyze",
-        sourceHandle: "output",
-        target: "llm_instagram",
-        targetHandle: "prompt",
-        animated: true,
-        style: { stroke: "#c084fc", strokeWidth: 2 },
-      },
-      // LLM Analyze → Write SEO (Prompt input)
-      {
-        id: "e5",
-        source: "llm_analyze",
-        sourceHandle: "output",
-        target: "llm_seo",
-        targetHandle: "prompt",
-        animated: true,
-        style: { stroke: "#c084fc", strokeWidth: 2 },
-      },
+      { id: "e1", source: "n_img1", sourceHandle: "source-image", target: "n_crop1", targetHandle: "target-image_url", animated: true, style: edgeStyle },
+      { id: "e2", source: "n_txt1", sourceHandle: "source-text", target: "n_llm1", targetHandle: "target-system_prompt", animated: true, style: edgeStyle },
+      { id: "e3", source: "n_txt2", sourceHandle: "source-text", target: "n_llm1", targetHandle: "target-user_message", animated: true, style: edgeStyle },
+      { id: "e4", source: "n_crop1", sourceHandle: "source-image", target: "n_llm1", targetHandle: "target-images-0", animated: true, style: edgeStyle },
+      { id: "e5", source: "n_vid1", sourceHandle: "source-video", target: "n_frame1", targetHandle: "target-video_url", animated: true, style: edgeStyle },
+      { id: "e6", source: "n_txt3", sourceHandle: "source-text", target: "n_llm2", targetHandle: "target-system_prompt", animated: true, style: edgeStyle },
+      { id: "e7", source: "n_llm1", sourceHandle: "source-text", target: "n_llm2", targetHandle: "target-user_message", animated: true, style: edgeStyle },
+      { id: "e8", source: "n_crop1", sourceHandle: "source-image", target: "n_llm2", targetHandle: "target-images-0", animated: true, style: edgeStyle },
+      { id: "e9", source: "n_frame1", sourceHandle: "source-image", target: "n_llm2", targetHandle: "target-images-1", animated: true, style: edgeStyle },
     ];
-
-    set({
-      workflowId: "sample_product_listing",
-      workflowName: "Product Listing Generator",
-      nodes: sampleNodes,
-      edges: sampleEdges,
-      history: [],
-      historyIndex: -1,
-    });
+    set({ workflowId: "sample_product_marketing", workflowName: "Product Marketing Kit Generator", nodes: sampleNodes, edges: sampleEdges, history: [], historyIndex: -1 });
   },
 
   exportWorkflow: () => {
     const { workflowId, workflowName, nodes, edges } = get();
-    const workflow: Workflow = {
-      id: workflowId,
-      name: workflowName,
-      nodes,
-      edges,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    return JSON.stringify(workflow, null, 2);
+    return JSON.stringify({ id: workflowId, name: workflowName, nodes, edges, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, null, 2);
   },
 
   importWorkflow: (json) => {
     try {
-      const workflow = JSON.parse(json) as Workflow;
-      set({
-        workflowId: workflow.id,
-        workflowName: workflow.name,
-        nodes: workflow.nodes,
-        edges: workflow.edges,
-        history: [],
-        historyIndex: -1,
-      });
-    } catch (error) {
-      console.error("Failed to import workflow:", error);
-    }
+      const wf = JSON.parse(json) as Workflow;
+      set({ workflowId: wf.id, workflowName: wf.name, nodes: wf.nodes, edges: wf.edges, history: [], historyIndex: -1 });
+    } catch { /* silent */ }
   },
 
-  setWorkflowName: (name) => set({ workflowName: name }),
-
-  createNewWorkflow: () => {
-    set({
-      workflowId: `workflow_${Date.now()}`,
-      workflowName: "Untitled Workflow",
-      nodes: [],
-      edges: [],
-      history: [],
-      historyIndex: -1,
-    });
-  },
-
-  resetWorkflow: () => {
-    set({
-      workflowId: "",
-      workflowName: "",
-      nodes: [],
-      edges: [],
-      history: [],
-      historyIndex: -1,
-    });
-  },
+  createNewWorkflow: () => set({ workflowId: `workflow_${Date.now()}`, workflowName: "Untitled Workflow", nodes: [], edges: [], history: [], historyIndex: -1 }),
+  resetWorkflow: () => set({ workflowId: "", workflowName: "", nodes: [], edges: [], history: [], historyIndex: -1 }),
 }));

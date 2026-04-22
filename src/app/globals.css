@@ -8,7 +8,12 @@
   --bg-tertiary: #1a1a1a;
   --text-primary: #ffffff;
   --text-secondary: #888888;
-  --border-color: #2a2a2a;
+  --border-color: #1f1f1f;
+  --accent: #e2ff66;
+  --handle-text: #10b981;
+  --handle-image: #6366f1;
+  --handle-video: #f59e0b;
+  --handle-llm: #7c3aed;
 }
 
 @theme inline {
@@ -18,244 +23,251 @@
   --font-mono: var(--font-geist-mono);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-html {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;
-  width: 100%;
-}
+html { margin: 0; padding: 0; min-height: 100%; width: 100%; }
 
 body {
-  margin: 0;
-  padding: 0;
-  min-height: 100%;
-  width: 100%;
-  overflow-x: clip;
-}
-
-body {
+  margin: 0; padding: 0; min-height: 100%; width: 100%; overflow-x: clip;
   background: var(--background);
   color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-/* React Flow Customizations */
-.react-flow__node {
-  cursor: default;
+/* ─── Node card base ─────────────────────────────────────── */
+.node-card {
+  background: #161616;
+  border: 1.5px solid #232323;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  overflow: visible;
 }
 
-.react-flow__handle {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #666;
-  border: 2px solid #888;
+.node-card:hover { border-color: #2e2e2e; }
+
+.node-selected { border-color: #7c3aed !important; box-shadow: 0 0 0 1px #7c3aed22, 0 4px 24px rgba(124,58,237,0.15) !important; }
+
+/* Pulsating glow for executing nodes */
+.node-executing {
+  border-color: #7c3aed !important;
+  animation: nodeGlow 1s ease-in-out infinite;
 }
 
-.react-flow__handle:hover {
-  background: #888;
-  transform: scale(1.2);
-}
-
-.react-flow__edge-path {
-  stroke: #444;
-  stroke-width: 2;
-}
-
-.react-flow__edge.animated path {
-  stroke-dasharray: 5;
-  animation: dashdraw 0.5s linear infinite;
-}
-
-@keyframes dashdraw {
-  from {
-    stroke-dashoffset: 10;
+@keyframes nodeGlow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(124,58,237,0.4), 0 0 20px rgba(124,58,237,0.15);
   }
-
-  to {
-    stroke-dashoffset: 0;
+  50% {
+    box-shadow: 0 0 20px rgba(124,58,237,0.8), 0 0 40px rgba(124,58,237,0.3), 0 0 60px rgba(124,58,237,0.1);
   }
 }
 
-.react-flow__connection-line {
-  stroke: #666;
-  stroke-width: 2;
+/* ─── Node parts ─────────────────────────────────────────── */
+.node-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px 8px 10px;
+  border-bottom: 1px solid #1f1f1f;
+  border-radius: 11px 11px 0 0;
+  background: #1a1a1a;
 }
 
-/* Minimap styles */
+.node-header-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+
+.node-icon {
+  width: 22px; height: 22px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.node-icon-text { background: rgba(16,185,129,0.15); color: #10b981; }
+.node-icon-image { background: rgba(99,102,241,0.15); color: #6366f1; }
+.node-icon-video { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.node-icon-llm { background: rgba(124,58,237,0.15); color: #7c3aed; }
+.node-icon-crop { background: rgba(249,115,22,0.15); color: #f97316; }
+.node-icon-extract { background: rgba(20,184,166,0.15); color: #14b8a6; }
+
+.node-title { font-size: 12px; font-weight: 600; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.node-label-input {
+  background: transparent; border: none; outline: none;
+  font-size: 12px; font-weight: 600; color: #e0e0e0;
+  width: 160px; padding: 0;
+}
+.node-label-input:focus { color: #fff; }
+
+.node-delete-btn {
+  width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; color: #444; flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+.node-delete-btn:hover { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+.node-body { padding: 10px; }
+
+.node-textarea {
+  width: 100%;
+  background: #111; border: 1px solid #232323; border-radius: 8px;
+  padding: 8px 10px; font-size: 12px; color: #ccc;
+  resize: none; outline: none; font-family: inherit; line-height: 1.5;
+  transition: border-color 0.12s;
+}
+.node-textarea:focus { border-color: #3a3a3a; }
+.node-textarea::placeholder { color: #444; }
+
+.node-input {
+  width: 100%; background: #111; border: 1px solid #232323; border-radius: 6px;
+  padding: 5px 8px; font-size: 11px; color: #ccc; outline: none;
+  transition: border-color 0.12s;
+}
+.node-input:focus { border-color: #3a3a3a; }
+.node-input::placeholder { color: #444; }
+
+.node-select {
+  background: #111; border: 1px solid #232323; border-radius: 6px;
+  padding: 4px 8px; font-size: 11px; color: #aaa; outline: none;
+  cursor: pointer; transition: border-color 0.12s;
+}
+.node-select:focus { border-color: #3a3a3a; }
+
+.node-field-label { display: block; font-size: 10px; color: #555; font-weight: 500; margin-bottom: 3px; }
+
+.node-upload-zone {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 96px; background: #111; border: 1.5px dashed #2a2a2a; border-radius: 8px;
+  cursor: pointer; transition: border-color 0.12s, background 0.12s;
+}
+.node-upload-zone:hover { border-color: #3a3a3a; background: #141414; }
+
+.node-output-area {
+  min-height: 80px; background: #111; border: 1px solid #1f1f1f; border-radius: 8px;
+  padding: 10px; max-height: 240px; overflow-y: auto;
+}
+
+.node-footer {
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 6px 10px 10px; gap: 8px;
+}
+
+.node-run-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; background: #1f1f1f;
+  border: 1px solid #2a2a2a; border-radius: 8px;
+  font-size: 11px; font-weight: 600; color: #e2ff66;
+  cursor: pointer; transition: all 0.12s;
+}
+.node-run-btn:hover:not(:disabled) { background: #2a2a2a; border-color: #3a3a3a; }
+.node-run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ─── Handles ────────────────────────────────────────────── */
+.node-handle {
+  width: 10px !important; height: 10px !important;
+  border-radius: 50% !important;
+  border: 2px solid currentColor !important;
+  background: #161616 !important;
+  transition: transform 0.12s, background 0.12s;
+  cursor: crosshair !important;
+}
+
+.node-handle:hover { transform: scale(1.4) !important; }
+.node-handle-connected { background: currentColor !important; }
+
+.node-handle-text { color: #10b981 !important; border-color: #10b981 !important; }
+.node-handle-image { color: #6366f1 !important; border-color: #6366f1 !important; }
+.node-handle-video { color: #f59e0b !important; border-color: #f59e0b !important; }
+
+.node-handle-row { position: absolute; display: flex; align-items: center; }
+.node-handle-row-left { left: -5px; flex-direction: row; }
+.node-handle-row-right { right: -5px; flex-direction: row-reverse; }
+
+.node-handle-label-left {
+  font-size: 10px; color: #555; white-space: nowrap;
+  position: absolute; left: -80px; pointer-events: none;
+}
+.node-handle-label-right {
+  font-size: 10px; color: #555; white-space: nowrap;
+  position: absolute; right: -8px; transform: translateX(100%); pointer-events: none;
+}
+
+/* ─── Sidebar ────────────────────────────────────────────── */
+.sidebar-icon-btn {
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  border-radius: 8px; color: rgba(255,255,255,0.4);
+  transition: background 0.12s, color 0.12s;
+}
+.sidebar-icon-btn:hover { background: #1f1f1f; color: #fff; }
+.sidebar-icon-active { background: #2a2a2a !important; color: #fff !important; }
+
+.node-sidebar-btn {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 10px 6px; background: #151515; border: 1px solid #1f1f1f;
+  border-radius: 10px; cursor: grab; transition: all 0.12s;
+  min-height: 64px;
+}
+.node-sidebar-btn:hover { background: #1e1e1e; border-color: #2a2a2a; transform: translateY(-1px); }
+.node-sidebar-btn:active { cursor: grabbing; transform: translateY(0); }
+
+/* ─── History panel ──────────────────────────────────────── */
+.history-panel {
+  width: 300px; height: 100%; background: #0d0d0d; border-left: 1px solid #1f1f1f;
+  display: flex; flex-direction: column; flex-shrink: 0;
+}
+.history-panel-wrapper { display: flex; height: 100%; }
+
+/* ─── Canvas controls ────────────────────────────────────── */
+.canvas-ctrl-btn {
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border-radius: 6px; color: #555; transition: background 0.12s, color 0.12s;
+}
+.canvas-ctrl-btn:hover { background: #1a1a1a; color: #fff; }
+
+/* ─── React Flow overrides ───────────────────────────────── */
+.react-flow__node { cursor: default !important; }
+.react-flow__edge-path { stroke: #7c3aed; stroke-width: 2; }
+.react-flow__edge.animated path { stroke-dasharray: 5; animation: dashdraw 0.5s linear infinite; }
+@keyframes dashdraw { from { stroke-dashoffset: 10; } to { stroke-dashoffset: 0; } }
+.react-flow__connection-line { stroke: #7c3aed; stroke-width: 2; stroke-dasharray: 5; }
+.react-flow__handle { cursor: crosshair !important; }
+
 .react-flow__minimap {
-  background: #111 !important;
-  border: 1px solid #2a2a2a !important;
-  border-radius: 4px !important;
+  background: #111 !important; border: 1px solid #1f1f1f !important;
+  border-radius: 10px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
 }
-
-/* Controls styles */
 .react-flow__controls {
-  background: #111 !important;
-  border: 1px solid #2a2a2a !important;
-  border-radius: 4px !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5) !important;
+  background: #111 !important; border: 1px solid #1f1f1f !important;
+  border-radius: 8px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
 }
+.react-flow__controls-button { background: #111 !important; border-color: #1f1f1f !important; color: #555 !important; }
+.react-flow__controls-button:hover { background: #1a1a1a !important; color: #fff !important; }
+.react-flow__controls-button svg { fill: currentColor !important; }
 
-.react-flow__controls-button {
-  background: #111 !important;
-  border-color: #2a2a2a !important;
-  color: #666 !important;
-}
+/* ─── Scrollbar ──────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
 
-.react-flow__controls-button:hover {
-  background: #1a1a1a !important;
-  color: #fff !important;
-}
+::selection { background: rgba(124,58,237,0.3); color: #fff; }
+*:focus { outline: none; }
+*:focus-visible { outline: 1px solid #555; outline-offset: 1px; }
+button, input, textarea, select { transition: all 0.12s ease; }
 
-.react-flow__controls-button svg {
-  fill: currentColor !important;
-}
-
-/* Scrollbar styles */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #111;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #444;
-}
-
-/* Selection styles */
-::selection {
-  background: rgba(100, 100, 100, 0.4);
-  color: #ffffff;
-}
-
-/* Focus styles */
-*:focus {
-  outline: none;
-}
-
-*:focus-visible {
-  outline: 1px solid #555;
-  outline-offset: 1px;
-}
-
-/* Transition defaults */
-button,
-input,
-textarea,
-select {
-  transition: all 0.15s ease;
-}
-
-/* ─── Clerk auth form overrides ──────────────────────────────────────────── */
-
-/* Dark inputs */
-.cl-formFieldInput {
-  background-color: #262626 !important;
-  border-color: #3a3a3a !important;
-  color: #ffffff !important;
-}
-
-.cl-formFieldInput::placeholder {
-  color: rgba(255, 255, 255, 0.35) !important;
-}
-
-.cl-formFieldInput:focus {
-  border-color: #555555 !important;
-  box-shadow: 0 0 0 1px #555555 !important;
-}
-
-/* Form labels */
-.cl-formFieldLabel {
-  color: rgba(255, 255, 255, 0.65) !important;
-}
-
-/* "Forgot password?" and similar inline links */
-.cl-formFieldAction {
-  color: rgba(255, 255, 255, 0.5) !important;
-}
-
-.cl-formFieldAction:hover {
-  color: rgba(255, 255, 255, 0.8) !important;
-}
-
-/* "or" divider */
-.cl-dividerText {
-  color: rgba(255, 255, 255, 0.35) !important;
-}
-
-.cl-dividerLine {
-  background-color: #2a2a2a !important;
-}
-
-/* Footer: "Already have an account? Sign in" / "Don't have an account? Sign up" */
-.cl-footer,
-.cl-footerPages,
-.cl-footerPagesLink {
-  background-color: transparent !important;
-}
-
-.cl-footerActionText {
-  color: rgba(255, 255, 255, 0.5) !important;
-}
-
-.cl-footerActionLink {
-  color: rgba(255, 255, 255, 0.85) !important;
-  font-weight: 500 !important;
-  text-decoration: underline !important;
-  text-decoration-color: rgba(255, 255, 255, 0.3) !important;
-}
-
-.cl-footerActionLink:hover {
-  color: #ffffff !important;
-}
-
-/* Social buttons (Continue with Google) — keep white per production */
-.cl-socialButtonsBlockButton {
-  background-color: #ffffff !important;
-  border-color: #e5e5e5 !important;
-}
-
-.cl-socialButtonsBlockButtonText {
-  color: #111111 !important;
-}
-
-/* "Last used" badge on social buttons */
-.cl-badge {
-  background-color: #111111 !important;
-  color: #ffffff !important;
-  border: none !important;
-  font-size: 10px !important;
-  font-weight: 500 !important;
-  padding: 2px 6px !important;
-  border-radius: 4px !important;
-  opacity: 1 !important;
-}
-
-/* Arrow icon inside social buttons */
-.cl-buttonArrowIcon {
-  color: #111111 !important;
-}
-
-/* Identity preview (after email step) */
-.cl-identityPreviewText {
-  color: rgba(255, 255, 255, 0.7) !important;
-}
-
-.cl-identityPreviewEditButton {
-  color: rgba(255, 255, 255, 0.5) !important;
-}
-/* ─────────────────────────────────────────────────────────────────────────── */
+/* ─── Clerk auth overrides ───────────────────────────────── */
+.cl-formFieldInput { background-color: #262626 !important; border-color: #3a3a3a !important; color: #ffffff !important; }
+.cl-formFieldInput::placeholder { color: rgba(255,255,255,0.35) !important; }
+.cl-formFieldInput:focus { border-color: #555555 !important; box-shadow: 0 0 0 1px #555555 !important; }
+.cl-formFieldLabel { color: rgba(255,255,255,0.65) !important; }
+.cl-formFieldAction { color: rgba(255,255,255,0.5) !important; }
+.cl-formFieldAction:hover { color: rgba(255,255,255,0.8) !important; }
+.cl-dividerText { color: rgba(255,255,255,0.35) !important; }
+.cl-dividerLine { background-color: #2a2a2a !important; }
+.cl-footer, .cl-footerPages, .cl-footerPagesLink { background-color: transparent !important; }
+.cl-footerActionText { color: rgba(255,255,255,0.5) !important; }
+.cl-footerActionLink { color: rgba(255,255,255,0.85) !important; font-weight: 500 !important; text-decoration: underline !important; text-decoration-color: rgba(255,255,255,0.3) !important; }
+.cl-footerActionLink:hover { color: #ffffff !important; }
+.cl-socialButtonsBlockButton { background-color: #ffffff !important; border-color: #e5e5e5 !important; }
+.cl-socialButtonsBlockButtonText { color: #111111 !important; }
+.cl-badge { background-color: #111111 !important; color: #ffffff !important; border: none !important; font-size: 10px !important; font-weight: 500 !important; padding: 2px 6px !important; border-radius: 4px !important; opacity: 1 !important; }
+.cl-buttonArrowIcon { color: #111111 !important; }
+.cl-identityPreviewText { color: rgba(255,255,255,0.7) !important; }
+.cl-identityPreviewEditButton { color: rgba(255,255,255,0.5) !important; }
