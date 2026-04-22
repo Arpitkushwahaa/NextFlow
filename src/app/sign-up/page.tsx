@@ -1,11 +1,14 @@
 'use client';
 
 import { SignUp } from '@clerk/nextjs';
+import AuthCard from '@/components/AuthCard';
 
 export default function SignUpPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black">
-      <SignUp />
-    </div>
+    <AuthCard title="Create your NextFlow account">
+      <div className="space-y-4">
+        <SignUp appearance={{ elements: { card: 'bg-transparent shadow-none' } }} />
+      </div>
+    </AuthCard>
   );
 }
