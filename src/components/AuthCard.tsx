@@ -4,17 +4,25 @@ import React from 'react';
 
 export default function AuthCard({ children, title }: { children: React.ReactNode; title?: string }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-black via-[#0b0b0b] to-black p-6">
-      <div className="w-full max-w-md bg-neutral-900/90 backdrop-blur-md border border-neutral-800 rounded-2xl p-6 shadow-xl">
-        <div className="mb-6 text-center">
-          <h2 className="text-2xl font-semibold text-white">{title ?? 'Sign in to NextFlow'}</h2>
-          <p className="text-sm text-neutral-400 mt-1">Welcome back — sign in to continue</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-black p-6">
+      <div className="mb-6 text-center">
+        <div className="mx-auto w-12 h-12 rounded-lg bg-neutral-100 text-neutral-900 flex items-center justify-center font-semibold">N</div>
+        <div className="mt-3 text-white font-medium">Nodefy</div>
+      </div>
+
+      <div className="w-full max-w-md bg-neutral-900/90 backdrop-blur-md border border-neutral-800 rounded-2xl p-0 shadow-xl overflow-hidden">
+        <div className="p-4 border-b border-neutral-800 bg-neutral-900/95">
+          <div className="text-center">
+            <h2 className="text-lg font-semibold text-white">{title ?? 'Sign in to NextFlow'}</h2>
+          </div>
         </div>
 
-        <div className="bg-neutral-800/60 p-5 rounded-xl">{children}</div>
+        <div className="p-6 bg-neutral-900">
+          <div className="bg-neutral-800/60 p-4 rounded-lg">{children}</div>
+        </div>
 
-        <div className="mt-4 text-xs text-neutral-500 text-center">
-          <span>By continuing you agree to our Terms and Privacy.</span>
+        <div className="py-4 text-center text-sm text-neutral-500">
+          <a href="/" className="hover:underline">← Back to home</a>
         </div>
       </div>
     </div>
