@@ -267,7 +267,9 @@ button, input, textarea, select { transition: all 0.12s ease; }
 .cl-footerActionLink:hover { color: #ffffff !important; }
 .cl-socialButtonsBlockButton { background-color: #ffffff !important; border-color: #e5e5e5 !important; }
 .cl-socialButtonsBlockButtonText { color: #111111 !important; }
-.cl-badge { background-color: #111111 !important; color: #ffffff !important; border: none !important; font-size: 10px !important; font-weight: 500 !important; padding: 2px 6px !important; border-radius: 4px !important; opacity: 1 !important; }
+.cl-badge,
+[class*="cl-badge"],
+.cl-lastAuthenticationStrategyBadge { display: none !important; }
 .cl-buttonArrowIcon { color: #111111 !important; }
 .cl-identityPreviewText { color: rgba(255,255,255,0.7) !important; }
 .cl-identityPreviewEditButton { color: rgba(255,255,255,0.5) !important; }

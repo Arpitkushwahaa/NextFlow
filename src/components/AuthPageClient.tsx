@@ -23,6 +23,8 @@ const clerkAppearance = {
     footer: "!bg-transparent !rounded-none",
     formFieldRow__firstName: "hidden",
     formFieldRow__lastName: "hidden",
+    badge: "!hidden",
+    lastAuthenticationStrategyBadge: "!hidden",
   },
 };
 
