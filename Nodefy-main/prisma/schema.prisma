@@ -1,4 +1,4 @@
-﻿generator client {
+generator client {
   provider = "prisma-client-js"
 }
 
@@ -47,74 +47,6 @@ model NodeRun {
   nodeLabel     String
   status        RunStatus   @default(RUNNING)
   duration      Int?        
-  inputs        Json        @default("{}")
-  outputs       Json        @default("{}")
-  error         String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-}
-
-enum RunStatus {
-  RUNNING
-  SUCCESS
-  FAILED
-  PARTIAL
-}
-
-enum RunScope {
-  FULL
-  PARTIAL
-  SINGLE
-}generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-model User {
-  id        String     @id @default(cuid())
-  clerkId   String     @unique
-  email     String     @unique
-  workflows Workflow[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-}
-
-model Workflow {
-  id          String        @id @default(cuid())
-  userId      String
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title       String
-  nodes       Json          @default("[]")
-  edges       Json          @default("[]")
-  runs        WorkflowRun[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-}
-
-model WorkflowRun {
-  id         String      @id @default(cuid())
-  workflowId String
-  workflow   Workflow    @relation(fields: [workflowId], references: [id], onDelete: Cascade)
-  status     RunStatus   @default(RUNNING)
-  duration   Int?        // in milliseconds
-  scope      RunScope    @default(FULL)
-  nodeRuns   NodeRun[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-}
-
-model NodeRun {
-  id            String      @id @default(cuid())
-  workflowRunId String
-  workflowRun   WorkflowRun @relation(fields: [workflowRunId], references: [id], onDelete: Cascade)
-  nodeId        String
-  nodeLabel     String
-  status        RunStatus   @default(RUNNING)
-  duration      Int?        // in milliseconds
   inputs        Json        @default("{}")
   outputs       Json        @default("{}")
   error         String?
