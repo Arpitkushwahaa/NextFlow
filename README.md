@@ -5,12 +5,15 @@ NextFlow is a powerful, node-based AI workflow platform that enables users to cr
 ## 📸 Screenshots
 
 **Landing Page**
+![Landing Page](./public/screenshots/landing.png)
 Beautiful, responsive landing page with interactive workflow preview
 
 **Dashboard**
+![Dashboard](./public/screenshots/dashboard.png)
 User workspace showing saved workflows with easy access to create new ones
 
 **Workflow Canvas**
+![Workflow Canvas](./public/screenshots/workflow.png)
 Visual editor with drag-and-drop nodes, real-time connections, and live execution
 
 ## 🚀 Features
@@ -136,3 +139,7 @@ NextFlow/
 ## 📄 License
 
 This project is open source and available under the MIT License.
+
+---
+
+**Made by [Arpit Kushwaha](https://github.com/Arpitkushwahaa)**
