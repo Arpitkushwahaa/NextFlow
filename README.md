@@ -4,17 +4,35 @@ NextFlow is a powerful, node-based AI workflow platform that enables users to cr
 
 ## 📸 Screenshots
 
-**Landing Page**
-![Landing Page](./public/screenshots/landing.png)
-Beautiful, responsive landing page with interactive workflow preview
+**Landing Page - NextFlow AI Workflows**
+Beautiful, fully responsive landing page featuring:
+- Clean hero section with "NextFlow - AI Workflows" branding
+- Interactive workflow visualization showing AI pipeline flows (Image → Detection → Text → Video)
+- Visual node-based workflow with animated connections between nodes
+- Bright "Start Now" call-to-action button
+- Navigation menu with Collective, Enterprise, Pricing, and Sign In options
+- Mobile responsive design
 
-**Dashboard**
-![Dashboard](./public/screenshots/dashboard.png)
-User workspace showing saved workflows with easy access to create new ones
+**Dashboard - User Workspace**
+Powerful workspace management featuring:
+- User profile section showing logged-in user (e.g., "Sumit Attri")
+- "Create New File" button for starting new workflows
+- "My Files" section showing all saved workflows
+- Workflow cards displaying:
+  - Workflow name and thumbnail
+  - Last edited timestamp
+  - Quick access to open or manage workflows
+- Dark theme UI for comfortable viewing
+- Organized layout with sidebar navigation
 
-**Workflow Canvas**
-![Workflow Canvas](./public/screenshots/workflow.png)
-Visual editor with drag-and-drop nodes, real-time connections, and live execution
+**Workflow Canvas - Visual Editor**
+Professional node-based editor featuring:
+- Drag-and-drop canvas for building AI workflows
+- Multiple node types: Text Input, Image Upload, LLM Processing, Detection, Output
+- Real-time node connections with animated edges
+- Visual flow from input → processing → output
+- Full keyboard support (Delete nodes, Undo/Redo)
+- Live execution and result preview
 
 ## 🚀 Features
 
