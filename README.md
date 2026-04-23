@@ -6,11 +6,11 @@ NextFlow is a powerful, node-based AI workflow platform that enables users to cr
 
 **Landing Page**
 
-![NextFlow Landing Page](public/screenshots/landing-page.png)
+![NextFlow Landing Page](https://raw.githubusercontent.com/Arpitkushwahaa/NextFlow/main/public/screenshots/landing-page.png)
 
 **Workflow Builder**
 
-![NextFlow Workflow Builder](public/screenshots/workflow-builder.png)
+![NextFlow Workflow Builder](https://raw.githubusercontent.com/Arpitkushwahaa/NextFlow/main/public/screenshots/workflow-builder.png)
 
 ## 🚀 Features
 
