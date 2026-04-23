@@ -174,8 +174,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { workflowId, scope, nodeIds } = runSchema.parse(body);
 
-    const user = await prisma.user.findUnique({ where: { clerkId: userId } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    let user = await prisma.user.findUnique({ where: { clerkId: userId } });
+    if (!user) user = await prisma.user.create({ data: { clerkId: userId, email: `${userId}@placeholder.local` } });
 
     const workflow = await prisma.workflow.findFirst({ where: { id: workflowId, userId: user.id } });
     if (!workflow) return NextResponse.json({ error: "Workflow not found" }, { status: 404 });

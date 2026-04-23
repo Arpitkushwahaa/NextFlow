@@ -35,7 +35,7 @@ function getHandleDataType(handleId: string | null | undefined): string | null {
 }
 
 export default function Canvas({ onDragOver, onDrop }: CanvasProps) {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, setEdges, deleteNode, undo, redo, canUndo, canRedo, workflowId, workflowName, setNodeExecuting, fetchRuns } = useWorkflowStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, setEdges, deleteNode, undo, redo, canUndo, canRedo, workflowId, workflowName, setNodeExecuting, fetchRuns, saveWorkflow } = useWorkflowStore();
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
   const edgeReconnectSuccessful = useRef(true);
@@ -74,6 +74,7 @@ export default function Canvas({ onDragOver, onDrop }: CanvasProps) {
     setIsRunning(true);
     nodes.forEach((n) => setNodeExecuting(n.id, true));
     try {
+      await saveWorkflow();
       const res = await fetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -101,6 +102,7 @@ export default function Canvas({ onDragOver, onDrop }: CanvasProps) {
     setIsRunning(true);
     selected.forEach((id) => setNodeExecuting(id, true));
     try {
+      await saveWorkflow();
       const res = await fetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
