@@ -225,7 +225,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   fetchRuns: async () => {
     const { workflowId } = get();
-    if (!workflowId) return;
+    if (!workflowId || workflowId.startsWith("workflow_") || workflowId.startsWith("sample_")) return;
     try {
       const res = await fetch(`/api/runs?workflowId=${workflowId}`);
       if (res.ok) { const runs = await res.json() as WorkflowRunEntry[]; set({ runs: Array.isArray(runs) ? runs : [] }); }

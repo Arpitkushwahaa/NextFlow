@@ -67,8 +67,10 @@ export default function Canvas({ onDragOver, onDrop }: CanvasProps) {
     nodes.filter((n) => n.selected).forEach((n) => deleteNode(n.id));
   }, [nodes, deleteNode]);
 
+  const isValidId = (id: string) => !!id && !id.startsWith("workflow_") && !id.startsWith("sample_");
+
   const runFullWorkflow = useCallback(async () => {
-    if (isRunning) return;
+    if (isRunning || !isValidId(workflowId)) return;
     setIsRunning(true);
     nodes.forEach((n) => setNodeExecuting(n.id, true));
     try {
@@ -95,7 +97,7 @@ export default function Canvas({ onDragOver, onDrop }: CanvasProps) {
 
   const runSelectedNodes = useCallback(async () => {
     const selected = nodes.filter((n) => n.selected).map((n) => n.id);
-    if (!selected.length) return;
+    if (!selected.length || !isValidId(workflowId)) return;
     setIsRunning(true);
     selected.forEach((id) => setNodeExecuting(id, true));
     try {
@@ -144,12 +146,12 @@ export default function Canvas({ onDragOver, onDrop }: CanvasProps) {
             <span className="text-xs text-[#555] font-medium truncate max-w-[160px]">{workflowName || "Untitled"}</span>
             <div className="w-px h-4 bg-[#2a2a2a]" />
             {hasSelected && (
-              <button onClick={runSelectedNodes} disabled={isRunning} className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#2a2a2a] text-[#aaa] hover:text-white rounded-lg transition-all disabled:opacity-50">
+              <button onClick={runSelectedNodes} disabled={isRunning || !isValidId(workflowId)} title={!isValidId(workflowId) ? "Save workflow first" : ""} className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#2a2a2a] text-[#aaa] hover:text-white rounded-lg transition-all disabled:opacity-50">
                 {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
                 Run Selected
               </button>
             )}
-            <button onClick={runFullWorkflow} disabled={isRunning || nodes.length === 0} className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-[#e2ff66] hover:bg-[#d4f055] text-black rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+            <button onClick={runFullWorkflow} disabled={isRunning || nodes.length === 0 || !isValidId(workflowId)} title={!isValidId(workflowId) ? "Save workflow first" : ""} className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-[#e2ff66] hover:bg-[#d4f055] text-black rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed">
               {isRunning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
               Run All
             </button>
