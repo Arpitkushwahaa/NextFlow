@@ -35,11 +35,13 @@ function getHandleDataType(handleId: string | null | undefined): string | null {
 }
 
 export default function Canvas({ onDragOver, onDrop }: CanvasProps) {
-  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, setEdges, deleteNode, undo, redo, canUndo, canRedo, workflowId, workflowName, setNodeExecuting, fetchRuns, saveWorkflow } = useWorkflowStore();
+  const { nodes, edges, onNodesChange, onEdgesChange, onConnect, setEdges, deleteNode, undo, redo, canUndo, canRedo, workflowId, workflowName, setWorkflowName, setNodeExecuting, fetchRuns, saveWorkflow } = useWorkflowStore();
   const { zoomIn, zoomOut, fitView } = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
   const edgeReconnectSuccessful = useRef(true);
   const [isRunning, setIsRunning] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState("");
 
   const isValidConnection = useCallback((conn: Edge | Connection) => { const connection = conn as Connection;
     const srcType = getHandleDataType(connection.sourceHandle);
@@ -145,7 +147,32 @@ export default function Canvas({ onDragOver, onDrop }: CanvasProps) {
         {/* Top Toolbar */}
         <Panel position="top-center" className="mt-3">
           <div className="flex items-center gap-2 px-3 py-2 bg-[#111] border border-[#1f1f1f] rounded-xl shadow-xl">
-            <span className="text-xs text-[#555] font-medium truncate max-w-[160px]">{workflowName || "Untitled"}</span>
+            {isEditingName ? (
+              <input
+                autoFocus
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                onBlur={async () => {
+                  setIsEditingName(false);
+                  const trimmed = nameValue.trim() || "Untitled Workflow";
+                  setWorkflowName(trimmed);
+                  await saveWorkflow();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                  if (e.key === "Escape") { setIsEditingName(false); }
+                }}
+                className="text-xs font-medium bg-transparent border-b border-[#7c3aed] text-white outline-none w-[140px] truncate"
+              />
+            ) : (
+              <span
+                onClick={() => { setNameValue(workflowName || "Untitled Workflow"); setIsEditingName(true); }}
+                className="text-xs text-[#888] font-medium truncate max-w-[160px] cursor-text hover:text-white transition-colors"
+                title="Click to rename"
+              >
+                {workflowName || "Untitled Workflow"}
+              </span>
+            )}
             <div className="w-px h-4 bg-[#2a2a2a]" />
             {hasSelected && (
               <button onClick={runSelectedNodes} disabled={isRunning || !isValidId(workflowId)} title={!isValidId(workflowId) ? "Save workflow first" : ""} className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 bg-[#1a1a1a] hover:bg-[#2a2a2a] border border-[#2a2a2a] text-[#aaa] hover:text-white rounded-lg transition-all disabled:opacity-50">
