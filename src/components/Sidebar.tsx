@@ -1,7 +1,8 @@
 "use client";
-import React, { useCallback, useState, useRef, useEffect } from "react";
+import React, { useCallback, useState, useRef } from "react";
 import Link from "next/link";
-import { Type, ImageIcon, Video, Brain, Crop, Film, Search, Save, FileDown, FileUp, Package, Plus, ArrowLeft, ChevronLeft, ChevronRight, History } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Type, ImageIcon, Video, Brain, Crop, Film, Search, Save, FileDown, FileUp, Package, Plus, ArrowLeft, ChevronLeft, History } from "lucide-react";
 import { useWorkflowStore } from "@/store/workflowStore";
 
 export type NodeTypeKey = "textNode" | "imageNode" | "videoNode" | "llmNode" | "cropImageNode" | "extractFrameNode";
@@ -20,11 +21,28 @@ const NODE_TYPES: Array<{ type: NodeTypeKey; label: string; Icon: React.ElementT
 ];
 
 export default function Sidebar({ onDragStart }: SidebarProps) {
-  const { workflowName, setWorkflowName, saveWorkflow, loadSampleWorkflow, exportWorkflow, importWorkflow, createNewWorkflow, toggleHistory, isHistoryOpen } = useWorkflowStore();
+  const { workflowName, setWorkflowName, saveWorkflow, loadSampleWorkflow, exportWorkflow, importWorkflow, toggleHistory, isHistoryOpen } = useWorkflowStore();
+  const router = useRouter();
   const [open, setOpen] = useState(true);
   const [search, setSearch] = useState("");
+  const [creating, setCreating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const handleNew = useCallback(async () => {
+    setCreating(true);
+    try {
+      const res = await fetch("/api/workflows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Untitled Workflow", nodes: [], edges: [] }),
+      });
+      const data = await res.json() as { id?: string };
+      if (data?.id) router.push(`/workflow/${data.id}`);
+    } finally {
+      setCreating(false);
+    }
+  }, [router]);
 
   const filtered = search.trim() === "" ? NODE_TYPES : NODE_TYPES.filter((n) => n.label.toLowerCase().includes(search.toLowerCase()));
 
@@ -145,8 +163,8 @@ export default function Sidebar({ onDragStart }: SidebarProps) {
             <div className="px-3 pt-4 pb-4">
               <p className="text-[10px] font-semibold text-[#555] uppercase tracking-widest mb-2">Actions</p>
               <div className="flex gap-1.5">
-                <button onClick={createNewWorkflow} className="flex-1 flex items-center justify-center gap-1 py-2 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] rounded-lg text-[#888] hover:text-white text-[10px] transition-colors">
-                  <Plus className="w-3 h-3" /> New
+                <button onClick={handleNew} disabled={creating} className="flex-1 flex items-center justify-center gap-1 py-2 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] rounded-lg text-[#888] hover:text-white text-[10px] transition-colors disabled:opacity-50">
+                  <Plus className="w-3 h-3" /> {creating ? "..." : "New"}
                 </button>
                 <button onClick={() => saveWorkflow()} className="flex-1 flex items-center justify-center gap-1 py-2 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] rounded-lg text-[#888] hover:text-white text-[10px] transition-colors">
                   <Save className="w-3 h-3" /> Save

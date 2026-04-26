@@ -196,13 +196,30 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   saveWorkflow: async () => {
     const { workflowId, workflowName, nodes, edges } = get();
     get().saveWorkflowLocal();
-    if (!workflowId || workflowId.startsWith("workflow_") || workflowId.startsWith("sample_")) return;
+    if (!workflowId || workflowId.startsWith("sample_")) return;
     try {
-      await fetch(`/api/workflows/${workflowId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: workflowName, nodes, edges }),
-      });
+      if (workflowId.startsWith("workflow_")) {
+        // Fake ID — promote to a real DB record
+        const res = await fetch("/api/workflows", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: workflowName, nodes, edges }),
+        });
+        if (res.ok) {
+          const wf = await res.json() as { id: string };
+          set({ workflowId: wf.id });
+          // Update URL without full navigation
+          if (typeof window !== "undefined") {
+            window.history.replaceState(null, "", `/workflow/${wf.id}`);
+          }
+        }
+      } else {
+        await fetch(`/api/workflows/${workflowId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: workflowName, nodes, edges }),
+        });
+      }
     } catch { /* silent */ }
   },
 
