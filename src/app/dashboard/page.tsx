@@ -11,8 +11,7 @@ interface WorkflowRecord {
   updatedAt: string;
 }
 
-function getGreeting() {
-  if (typeof window === "undefined") return "Welcome";
+function computeGreeting() {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
   if (h < 17) return "Good afternoon";
@@ -36,6 +35,9 @@ export default function Dashboard() {
   const [workflows, setWorkflows] = useState<WorkflowRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [greeting, setGreeting] = useState("Welcome");
+
+  useEffect(() => { setGreeting(computeGreeting()); }, []);
 
   useEffect(() => {
     fetch("/api/workflows")
@@ -100,7 +102,7 @@ export default function Dashboard() {
       <main className="flex-1 px-8 py-10 max-w-6xl mx-auto w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-10">
           <div>
-            <h1 className="text-2xl font-semibold text-white">{getGreeting()}, {user?.firstName} 👋</h1>
+            <h1 className="text-2xl font-semibold text-white">{greeting}, {user?.firstName} 👋</h1>
             <p className="text-white/40 text-sm mt-1">Build and run your AI workflows</p>
           </div>
           <button

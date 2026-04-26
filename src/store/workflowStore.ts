@@ -196,13 +196,13 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   saveWorkflow: async () => {
     const { workflowId, workflowName, nodes, edges } = get();
     get().saveWorkflowLocal();
+    if (!workflowId || workflowId.startsWith("workflow_") || workflowId.startsWith("sample_")) return;
     try {
-      const res = await fetch(`/api/workflows/${workflowId}`, {
+      await fetch(`/api/workflows/${workflowId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: workflowName, nodes, edges }),
       });
-      if (!res.ok) { await fetch("/api/workflows", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: workflowName, nodes, edges }) }); }
     } catch { /* silent */ }
   },
 
@@ -214,6 +214,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   loadWorkflow: async (id) => {
     get().loadWorkflowLocal(id);
+    if (!id || id.startsWith("workflow_") || id.startsWith("sample_")) return;
     try {
       const res = await fetch(`/api/workflows/${id}`);
       if (res.ok) {
