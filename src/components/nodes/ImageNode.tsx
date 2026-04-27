@@ -10,10 +10,12 @@ const ImageNode = memo(({ id, data, selected }: NodeProps) => {
   const { updateNodeData, deleteNode } = useWorkflowStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const uploadFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith("image/")) return;
+    if (!file.type.startsWith("image/")) { setUploadError("Please upload an image file (jpg, png, webp, gif)"); return; }
     setIsUploading(true);
+    setUploadError(null);
     updateNodeData(id, { imageUrl: null });
     const formData = new FormData();
     formData.append("file", file);
@@ -21,9 +23,9 @@ const ImageNode = memo(({ id, data, selected }: NodeProps) => {
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const json = await res.json() as { url?: string; error?: string };
       if (json.url) updateNodeData(id, { imageUrl: json.url });
-      else updateNodeData(id, { imageUrl: null });
+      else setUploadError(json.error ?? "Upload failed");
     } catch {
-      updateNodeData(id, { imageUrl: null });
+      setUploadError("Network error during upload");
     } finally {
       setIsUploading(false);
     }
@@ -80,6 +82,7 @@ const ImageNode = memo(({ id, data, selected }: NodeProps) => {
           </div>
         )}
         <input ref={inputRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp,image/gif" className="hidden" onChange={onUpload} />
+        {uploadError && <p className="text-[10px] text-red-400 mt-1 px-1">{uploadError}</p>}
       </div>
 
       <div className="node-handle-row node-handle-row-right">

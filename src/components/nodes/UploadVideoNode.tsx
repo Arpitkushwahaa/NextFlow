@@ -10,10 +10,12 @@ const UploadVideoNode = memo(({ id, data, selected }: NodeProps) => {
   const { updateNodeData, deleteNode } = useWorkflowStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const uploadFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith("video/")) return;
+    if (!file.type.startsWith("video/")) { setUploadError("Please upload a video file (mp4, mov, webm)"); return; }
     setIsUploading(true);
+    setUploadError(null);
     updateNodeData(id, { videoUrl: null });
     const formData = new FormData();
     formData.append("file", file);
@@ -21,9 +23,9 @@ const UploadVideoNode = memo(({ id, data, selected }: NodeProps) => {
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const json = await res.json() as { url?: string; error?: string };
       if (json.url) updateNodeData(id, { videoUrl: json.url });
-      else updateNodeData(id, { videoUrl: null });
+      else setUploadError(json.error ?? "Upload failed");
     } catch {
-      updateNodeData(id, { videoUrl: null });
+      setUploadError("Network error during upload");
     } finally {
       setIsUploading(false);
     }
@@ -81,6 +83,7 @@ const UploadVideoNode = memo(({ id, data, selected }: NodeProps) => {
           </div>
         )}
         <input ref={inputRef} type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/*" className="hidden" onChange={onUpload} />
+        {uploadError && <p className="text-[10px] text-red-400 mt-1 px-1">{uploadError}</p>}
       </div>
 
       <div className="node-handle-row node-handle-row-right">
