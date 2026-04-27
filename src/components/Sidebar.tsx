@@ -204,7 +204,6 @@ export default function Sidebar({ onDragStart }: SidebarProps) {
                     <><Save className="w-3 h-3" /> Save</>
                   )}
                 </button>
-                </button>
               </div>
             </div>
           </div>
