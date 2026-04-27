@@ -50,23 +50,29 @@ const LLMNode = memo(({ id, data, selected }: NodeProps) => {
 
     try {
       const inputs = await collectInputs();
-      const systemPrompt = inputs["target-system_prompt"] || nodeData.systemPrompt || "";
       const userMessage = inputs["target-user_message"] || nodeData.userMessage || nodeData.userPrompt || "";
-      const images = Object.entries(inputs).filter(([k]) => k.startsWith("target-images-")).map(([, v]) => v).filter(Boolean);
+      const hasImages = Object.keys(inputs).some((k) => k.startsWith("target-images-") && inputs[k]);
 
-      if (!userMessage) {
-        updateNodeData(id, { error: "Connect a Text node to user_message or enter a message", isLoading: false });
+      if (!userMessage && !hasImages) {
+        updateNodeData(id, { error: "Connect a Text node to user_message or enter a message below", isLoading: false });
         setNodeExecuting(id, false);
         return;
       }
 
-      const scope = "SINGLE";
+      // Save workflow to DB first so the API has the latest node data
+      await useWorkflowStore.getState().saveWorkflow();
       const workflowId = useWorkflowStore.getState().workflowId;
+
+      if (!workflowId || workflowId.startsWith("workflow_") || workflowId.startsWith("sample_")) {
+        updateNodeData(id, { error: "Could not save workflow. Please try again.", isLoading: false });
+        setNodeExecuting(id, false);
+        return;
+      }
 
       const res = await fetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workflowId, scope, nodeIds: [id] }),
+        body: JSON.stringify({ workflowId, scope: "SINGLE", nodeIds: [id] }),
       });
 
       if (!res.ok) {

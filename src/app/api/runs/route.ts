@@ -213,18 +213,38 @@ export async function POST(req: NextRequest) {
 
           for (const edge of incomingEdges) {
             const srcOutput = nodeOutputs[edge.source];
-            if (!srcOutput) continue;
             const th = edge.targetHandle ?? "";
-            if (th.startsWith("target-images")) {
-              inputs[th] = srcOutput.imageUrl ?? srcOutput.text ?? "";
-            } else if (th === "target-user_message" || th === "target-system_prompt") {
-              inputs[th] = srcOutput.text ?? "";
-            } else if (th === "target-image_url") {
-              inputs[th] = srcOutput.imageUrl ?? "";
-            } else if (th === "target-video_url") {
-              inputs[th] = srcOutput.videoUrl ?? "";
-            } else if (th === "target-timestamp" || th.startsWith("target-x_") || th.startsWith("target-y_") || th.startsWith("target-w") || th.startsWith("target-h")) {
-              inputs[th] = srcOutput.text ?? "";
+
+            if (srcOutput) {
+              // Source node was already executed — use its output
+              if (th.startsWith("target-images")) inputs[th] = srcOutput.imageUrl ?? srcOutput.text ?? "";
+              else if (th === "target-user_message" || th === "target-system_prompt") inputs[th] = srcOutput.text ?? "";
+              else if (th === "target-image_url") inputs[th] = srcOutput.imageUrl ?? "";
+              else if (th === "target-video_url") inputs[th] = srcOutput.videoUrl ?? "";
+              else inputs[th] = srcOutput.text ?? "";
+            } else {
+              // Source node not yet executed (SINGLE/PARTIAL scope) — read from stored node data
+              const srcNode = allNodes.find((n) => n.id === edge.source);
+              if (srcNode) {
+                const d = srcNode.data;
+                if (th.startsWith("target-images") || th === "target-image_url") {
+                  inputs[th] = ((d.outputUrl ?? d.imageUrl ?? "") as string);
+                } else if (th === "target-user_message" || th === "target-system_prompt") {
+                  inputs[th] = ((d.content ?? d.response ?? "") as string);
+                } else if (th === "target-video_url") {
+                  inputs[th] = ((d.videoUrl ?? "") as string);
+                } else if (th === "target-timestamp") {
+                  inputs[th] = ((d.timestamp ?? "") as string);
+                } else if (th.startsWith("target-x_")) {
+                  inputs[th] = String(d.xPercent ?? 0);
+                } else if (th.startsWith("target-y_")) {
+                  inputs[th] = String(d.yPercent ?? 0);
+                } else if (th.startsWith("target-w")) {
+                  inputs[th] = String(d.widthPercent ?? 80);
+                } else if (th.startsWith("target-h")) {
+                  inputs[th] = String(d.heightPercent ?? 80);
+                }
+              }
             }
           }
 

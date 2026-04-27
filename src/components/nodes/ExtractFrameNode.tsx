@@ -15,19 +15,20 @@ const ExtractFrameNode = memo(({ id, data, selected }: NodeProps) => {
   const connectedTargets = edges.filter((e) => e.target === id).map((e) => e.targetHandle ?? "");
   const isConnected = (h: string) => connectedTargets.includes(h);
 
-  const onDoubleClickHandle = useCallback((e: React.MouseEvent, hid: string) => {
-    e.stopPropagation(); e.preventDefault();
-    deleteEdgeByHandle(id, hid, "target");
-  }, [id, deleteEdgeByHandle]);
-
   const handleRun = useCallback(async () => {
-    const videoUrl = nodeData.videoUrl;
-    if (!videoUrl) { updateNodeData(id, { error: "Connect a video source or enter a video URL", isLoading: false }); return; }
+    const hasVideoSource = isConnected("target-video_url") || !!nodeData.videoUrl;
+    if (!hasVideoSource) { updateNodeData(id, { error: "Connect a video node or enter a video URL", isLoading: false }); return; }
     updateNodeData(id, { isLoading: true, error: null, outputUrl: null });
     setNodeExecuting(id, true);
 
     try {
+      await useWorkflowStore.getState().saveWorkflow();
       const workflowId = useWorkflowStore.getState().workflowId;
+      if (!workflowId || workflowId.startsWith("workflow_") || workflowId.startsWith("sample_")) {
+        updateNodeData(id, { error: "Could not save workflow. Please try again.", isLoading: false });
+        setNodeExecuting(id, false);
+        return;
+      }
       const res = await fetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

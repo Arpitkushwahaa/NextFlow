@@ -1,7 +1,7 @@
 "use client";
-import React, { memo, useCallback, useRef } from "react";
+import React, { memo, useCallback, useRef, useState } from "react";
 import { Handle, Position, NodeProps } from "@xyflow/react";
-import { Video, Trash2, Upload } from "lucide-react";
+import { Video, Trash2, Upload, Loader2 } from "lucide-react";
 import { VideoNodeData } from "@/types/workflow";
 import { useWorkflowStore } from "@/store/workflowStore";
 
@@ -9,21 +9,37 @@ const UploadVideoNode = memo(({ id, data, selected }: NodeProps) => {
   const nodeData = data as VideoNodeData;
   const { updateNodeData, deleteNode } = useWorkflowStore();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const onUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadFile = useCallback(async (file: File) => {
+    if (!file.type.startsWith("video/")) return;
+    setIsUploading(true);
     updateNodeData(id, { videoUrl: null });
-
     const formData = new FormData();
     formData.append("file", file);
-
     try {
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const json = await res.json() as { url?: string; error?: string };
       if (json.url) updateNodeData(id, { videoUrl: json.url });
-    } catch { /* silent */ }
+      else updateNodeData(id, { videoUrl: null });
+    } catch {
+      updateNodeData(id, { videoUrl: null });
+    } finally {
+      setIsUploading(false);
+    }
   }, [id, updateNodeData]);
+
+  const onUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file);
+    e.target.value = "";
+  }, [uploadFile]);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) uploadFile(file);
+  }, [uploadFile]);
 
   return (
     <div className={`node-card${selected ? " node-selected" : ""}${nodeData.isExecuting ? " node-executing" : ""}`} style={{ minWidth: 280 }}>
@@ -36,7 +52,13 @@ const UploadVideoNode = memo(({ id, data, selected }: NodeProps) => {
       </div>
 
       <div className="node-body">
-        {nodeData.videoUrl ? (
+        {isUploading ? (
+          <div className="node-upload-zone cursor-default">
+            <Loader2 className="w-6 h-6 text-[#f59e0b] animate-spin mb-1" />
+            <p className="text-xs text-[#666]">Uploading video...</p>
+            <p className="text-[10px] text-[#444] mt-0.5">This may take a moment</p>
+          </div>
+        ) : nodeData.videoUrl ? (
           <div className="relative group">
             <video src={nodeData.videoUrl} controls className="w-full rounded-lg border border-[#2a2a2a] max-h-40 bg-black" />
             <button
@@ -47,13 +69,18 @@ const UploadVideoNode = memo(({ id, data, selected }: NodeProps) => {
             </button>
           </div>
         ) : (
-          <div className="node-upload-zone" onClick={() => inputRef.current?.click()}>
+          <div
+            className="node-upload-zone"
+            onClick={() => inputRef.current?.click()}
+            onDrop={onDrop}
+            onDragOver={(e) => e.preventDefault()}
+          >
             <Video className="w-6 h-6 text-[#555] mb-1" />
-            <p className="text-xs text-[#555]">Click to upload video</p>
+            <p className="text-xs text-[#555]">Click or drag to upload</p>
             <p className="text-[10px] text-[#444] mt-0.5">mp4, mov, webm, m4v</p>
           </div>
         )}
-        <input ref={inputRef} type="file" accept="video/mp4,video/mov,video/webm,video/m4v,video/*" className="hidden" onChange={onUpload} />
+        <input ref={inputRef} type="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/*" className="hidden" onChange={onUpload} />
       </div>
 
       <div className="node-handle-row node-handle-row-right">

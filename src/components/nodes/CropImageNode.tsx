@@ -21,13 +21,19 @@ const CropImageNode = memo(({ id, data, selected }: NodeProps) => {
   }, [id, deleteEdgeByHandle]);
 
   const handleRun = useCallback(async () => {
-    const imageUrl = nodeData.imageUrl;
-    if (!imageUrl) { updateNodeData(id, { error: "Connect an image source or the image_url handle", isLoading: false }); return; }
+    const hasImageSource = isConnected("target-image_url") || !!nodeData.imageUrl;
+    if (!hasImageSource) { updateNodeData(id, { error: "Connect an image node or enter an image URL", isLoading: false }); return; }
     updateNodeData(id, { isLoading: true, error: null, outputUrl: null });
     setNodeExecuting(id, true);
 
     try {
+      await useWorkflowStore.getState().saveWorkflow();
       const workflowId = useWorkflowStore.getState().workflowId;
+      if (!workflowId || workflowId.startsWith("workflow_") || workflowId.startsWith("sample_")) {
+        updateNodeData(id, { error: "Could not save workflow. Please try again.", isLoading: false });
+        setNodeExecuting(id, false);
+        return;
+      }
       const res = await fetch("/api/runs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
