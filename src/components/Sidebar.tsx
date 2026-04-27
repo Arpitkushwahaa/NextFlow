@@ -26,8 +26,22 @@ export default function Sidebar({ onDragStart }: SidebarProps) {
   const [open, setOpen] = useState(true);
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+
+  const handleSave = useCallback(async () => {
+    if (saveState === "saving") return;
+    setSaveState("saving");
+    try {
+      await saveWorkflow();
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 2000);
+    } catch {
+      setSaveState("error");
+      setTimeout(() => setSaveState("idle"), 2500);
+    }
+  }, [saveWorkflow, saveState]);
 
   const handleNew = useCallback(async () => {
     setCreating(true);
@@ -174,8 +188,22 @@ export default function Sidebar({ onDragStart }: SidebarProps) {
                 <button onClick={handleNew} disabled={creating} className="flex-1 flex items-center justify-center gap-1 py-2 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] rounded-lg text-[#888] hover:text-white text-[10px] transition-colors disabled:opacity-50">
                   <Plus className="w-3 h-3" /> {creating ? "..." : "New"}
                 </button>
-                <button onClick={() => saveWorkflow()} className="flex-1 flex items-center justify-center gap-1 py-2 bg-[#1a1a1a] hover:bg-[#222] border border-[#2a2a2a] rounded-lg text-[#888] hover:text-white text-[10px] transition-colors">
-                  <Save className="w-3 h-3" /> Save
+                <button
+                  onClick={handleSave}
+                  disabled={saveState === "saving"}
+                  className={`flex-1 flex items-center justify-center gap-1 py-2 border rounded-lg text-[10px] transition-all disabled:opacity-60
+                    ${saveState === "saved" ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400" : saveState === "error" ? "bg-red-500/20 border-red-500/40 text-red-400" : "bg-[#1a1a1a] hover:bg-[#222] border-[#2a2a2a] text-[#888] hover:text-white"}`}
+                >
+                  {saveState === "saving" ? (
+                    <><span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" /> Saving...</>
+                  ) : saveState === "saved" ? (
+                    <><Save className="w-3 h-3" /> Saved!</>
+                  ) : saveState === "error" ? (
+                    <><Save className="w-3 h-3" /> Failed</>
+                  ) : (
+                    <><Save className="w-3 h-3" /> Save</>
+                  )}
+                </button>
                 </button>
               </div>
             </div>
