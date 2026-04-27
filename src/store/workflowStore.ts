@@ -187,10 +187,28 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   saveWorkflowLocal: () => {
     const { workflowId, workflowName, nodes, edges } = get();
-    const workflow = { id: workflowId, name: workflowName, nodes, edges, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-    const workflows = JSON.parse(localStorage.getItem("workflows") || "{}");
-    workflows[workflowId] = workflow;
-    localStorage.setItem("workflows", JSON.stringify(workflows));
+    try {
+      // Strip large base64 blobs before writing to localStorage — the DB is
+      // the source of truth for image/video data; localStorage is only used
+      // for fast initial loads and must stay well under the 5 MB quota.
+      const lightNodes = nodes.map((n) => ({
+        ...n,
+        data: Object.fromEntries(
+          Object.entries(n.data as Record<string, unknown>).map(([k, v]) => [
+            k,
+            typeof v === "string" && v.startsWith("data:") ? null : v,
+          ])
+        ),
+      }));
+      const workflow = { id: workflowId, name: workflowName, nodes: lightNodes, edges, updatedAt: new Date().toISOString() };
+      // Replace entire entry for this workflow (not accumulating stale keys)
+      let stored: Record<string, unknown> = {};
+      try { stored = JSON.parse(localStorage.getItem("workflows") || "{}"); } catch { /* corrupt */ }
+      stored[workflowId] = workflow;
+      localStorage.setItem("workflows", JSON.stringify(stored));
+    } catch {
+      // Quota exceeded or storage unavailable — silently skip; DB has the data
+    }
   },
 
   saveWorkflow: async () => {
