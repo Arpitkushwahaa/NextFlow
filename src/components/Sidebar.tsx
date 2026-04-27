@@ -51,16 +51,24 @@ export default function Sidebar({ onDragStart }: SidebarProps) {
     const blob = new Blob([json], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `${workflowName.replace(/\s+/g, "_")}.json`; a.click();
-    URL.revokeObjectURL(url);
+    a.href = url;
+    a.download = `${(workflowName || "workflow").replace(/\s+/g, "_")}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }, [exportWorkflow, workflowName]);
 
   const handleImport = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => importWorkflow(ev.target?.result as string);
+    reader.onload = (ev) => {
+      importWorkflow(ev.target?.result as string);
+    };
     reader.readAsText(file);
+    // Reset so same file can be re-imported
+    e.target.value = "";
   }, [importWorkflow]);
 
   return (
