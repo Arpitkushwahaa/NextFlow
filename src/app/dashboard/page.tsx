@@ -1,7 +1,7 @@
 "use client";
 import { useUser, useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 
 interface WorkflowRecord {
@@ -29,15 +29,34 @@ function timeAgo(iso: string) {
 }
 
 export default function Dashboard() {
-  const { user } = useUser();
+  const { user, isLoaded, isSignedIn } = useUser();
   const { signOut } = useClerk();
   const router = useRouter();
   const [workflows, setWorkflows] = useState<WorkflowRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [greeting, setGreeting] = useState("Welcome");
 
   useEffect(() => { setGreeting(computeGreeting()); }, []);
+
+  // Client-side guard: redirect if session expired or user presses Back after sign-out
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.replace("/login");
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  const handleSignOut = useCallback(async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+      router.replace("/");
+    } catch {
+      setSigningOut(false);
+    }
+  }, [signOut, router, signingOut]);
 
   useEffect(() => {
     fetch("/api/workflows")
@@ -91,10 +110,13 @@ export default function Dashboard() {
             <span className="text-sm text-white/60 hidden sm:block">{user?.firstName} {user?.lastName}</span>
           </div>
           <button
-            onClick={() => signOut({ redirectUrl: "/" })}
-            className="text-xs font-medium text-white bg-[#1f1f1f] hover:bg-red-500/15 hover:text-red-400 border border-[#2a2a2a] hover:border-red-500/30 transition-all rounded-lg px-4 py-2"
+            onClick={handleSignOut}
+            disabled={signingOut}
+            className="text-xs font-medium text-white bg-[#1f1f1f] hover:bg-red-500/15 hover:text-red-400 border border-[#2a2a2a] hover:border-red-500/30 transition-all rounded-lg px-4 py-2 disabled:opacity-50 disabled:cursor-wait flex items-center gap-1.5"
           >
-            Sign out
+            {signingOut ? (
+              <><span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin inline-block" /> Signing out...</>
+            ) : "Sign out"}
           </button>
         </div>
       </header>
